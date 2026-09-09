@@ -1,7 +1,6 @@
 package com.example.companionmod.client.gui;
 
 import com.example.companionmod.common.entity.CompanionEntity;
-import com.example.companionmod.registry.EntityTypeRegistry;
 import com.example.companionmod.registry.ScreenHandlerRegistry;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
@@ -27,7 +26,12 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
 
     // Client-side constructor. The server sends the companion entity id when opening the GUI.
     public CompanionScreenHandler(int containerId, Inventory playerInventory, FriendlyByteBuf buf) {
-        this(containerId, playerInventory, findCompanion(playerInventory, buf.readVarInt()));
+        super(ScreenHandlerRegistry.COMPANION, containerId);
+        this.companion = findCompanion(playerInventory, buf.readVarInt());
+        this.companionInventory = this.companion != null
+                ? this.companion.getInventory()
+                : new SimpleContainer(COMPANION_SLOTS);
+        setupSlots(playerInventory);
     }
 
     private static CompanionEntity findCompanion(Inventory playerInventory, int entityId) {
@@ -35,13 +39,6 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
             return companion;
         }
         return null;
-    }
-
-    private CompanionScreenHandler(int containerId, Inventory playerInventory, CompanionEntity companion, boolean clientFallback) {
-        super(ScreenHandlerRegistry.COMPANION, containerId);
-        this.companion = companion;
-        this.companionInventory = companion != null ? companion.getInventory() : new SimpleContainer(COMPANION_SLOTS);
-        setupSlots(playerInventory);
     }
 
     private void setupSlots(Inventory playerInventory) {
@@ -64,10 +61,6 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
 
     public CompanionEntity getCompanion() {
         return this.companion;
-    }
-
-    public String getModeName() {
-        return this.companion == null ? "unknown" : this.companion.getModeName();
     }
 
     @Override
