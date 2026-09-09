@@ -2,6 +2,7 @@ package com.example.companionmod.common.entity;
 
 import com.example.companionmod.common.util.CompanionUtils;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -14,6 +15,7 @@ public class CompanionAI {
     private final CompanionEntity companion;
     private int tickCounter;
     private BlockPos targetBlock;
+    private Direction mineDirection;
 
     public CompanionAI(CompanionEntity companion) {
         this.companion = companion;
@@ -26,9 +28,9 @@ public class CompanionAI {
         tickCounter++;
 
         if (companion.isMining()) {
-            if (tickCounter % 5 == 0) handleMining();
+            if (tickCounter % 4 == 0) handleMining();
         } else if (companion.isGathering()) {
-            if (tickCounter % 5 == 0) handleGathering();
+            if (tickCounter % 4 == 0) handleGathering();
         } else if (companion.isDepositing()) {
             if (tickCounter % 10 == 0) handleAutoDeposit();
         } else if (companion.isFollowing()) {
@@ -51,44 +53,121 @@ public class CompanionAI {
     }
 
     private void handleMining() {
-        // The new return whistle remains useful when the player loses sight of the companion.
-        // We also automatically return when the inventory is completely full.
+        // Mining mode automatically collects the drops it creates.
+        collectNearbyDrops();
+
         if (companion.getInventory().isFull()) {
             companion.returnToOwner();
             return;
         }
 
-        if (targetBlock == null
-                || !CompanionUtils.isMinableBlock(companion.getLevel().getBlockState(targetBlock))) {
-            targetBlock = CompanionUtils.findNearestBlock(
-                    companion.getLevel(),
-                    companion.blockPosition(),
-                    CompanionUtils.MINING_RANGE,
-                    CompanionUtils::isMinableBlock
-            );
-        }
+        // Ores always win over ordinary blocks.
+        BlockPos ore = CompanionUtils.findNearestOre(
+                companion.getLevel(),
+                companion.blockPosition(),
+                CompanionUtils.ORE_SEARCH_RANGE
+        );
 
-        if (targetBlock == null) {
-            companion.getNavigation().stop();
+        if (ore != null) {
+            targetBlock = ore;
+            mineTarget(ore);
             return;
         }
 
-        double distance = companion.distanceToSqr(Vec3.atCenterOf(targetBlock));
+        // No ore nearby: make a safe 2-block-high staircase one level down.
+        targetBlock = null;
+        mineStairStep();
+    }
+
+    private void mineTarget(BlockPos target) {
+        if (!CompanionUtils.isMineableBlock(companion.getLevel().getBlockState(target))) {
+            targetBlock = null;
+            return;
+        }
+
+        double distance = companion.distanceToSqr(Vec3.atCenterOf(target));
 
         if (distance > 9.0D) {
             companion.getNavigation().moveTo(
-                    targetBlock.getX() + 0.5D,
-                    targetBlock.getY(),
-                    targetBlock.getZ() + 0.5D,
+                    target.getX() + 0.5D,
+                    target.getY(),
+                    target.getZ() + 0.5D,
                     1.0D
             );
             return;
         }
 
         companion.getNavigation().stop();
-
-        if (companion.getLevel().destroyBlock(targetBlock, true, companion)) {
+        if (companion.getLevel().destroyBlock(target, true, companion)) {
             targetBlock = null;
+        }
+    }
+
+    private void mineStairStep() {
+        if (mineDirection == null) {
+            mineDirection = companion.getDirection();
+        }
+
+        Direction[] candidates = new Direction[] {
+                mineDirection,
+                mineDirection.getClockWise(),
+                mineDirection.getCounterClockWise(),
+                mineDirection.getOpposite()
+        };
+
+        for (Direction direction : candidates) {
+            BlockPos foot = companion.blockPosition().relative(direction).below();
+
+            if (!CompanionUtils.canClearForStair(companion.getLevel(), foot, direction)) {
+                continue;
+            }
+
+            mineDirection = direction;
+
+            // Clear only the next stair step. We never destroy the block beneath ourselves.
+            BlockPos body = foot;
+            BlockPos head = foot.above();
+
+            if (!companion.getLevel().getBlockState(body).isAir()) {
+                companion.getLevel().destroyBlock(body, true, companion);
+            }
+
+            if (!companion.getLevel().getBlockState(head).isAir()
+                    && CompanionUtils.isMineableBlock(companion.getLevel().getBlockState(head))) {
+                companion.getLevel().destroyBlock(head, true, companion);
+            }
+
+            companion.getNavigation().moveTo(
+                    foot.getX() + 0.5D,
+                    foot.getY(),
+                    foot.getZ() + 0.5D,
+                    1.0D
+            );
+
+            return;
+        }
+
+        // No safe staircase direction available. Do not dig under the companion.
+        companion.getNavigation().stop();
+    }
+
+    private void collectNearbyDrops() {
+        for (ItemEntity item : companion.getLevel().getEntitiesOfClass(
+                ItemEntity.class,
+                companion.getBoundingBox().inflate(4.0D)
+        )) {
+            ItemStack stack = item.getItem();
+            if (stack.isEmpty() || !companion.getInventory().canAddItem(stack)) continue;
+
+            companion.getInventory().addItem(stack);
+
+            if (stack.isEmpty()) {
+                item.discard();
+            } else {
+                item.setItem(stack);
+            }
+
+            if (companion.getInventory().isFull()) return;
         }
     }
 
@@ -97,9 +176,9 @@ public class CompanionAI {
         double nearestDistance = Double.MAX_VALUE;
 
         for (ItemEntity item : companion.getLevel().getEntitiesOfClass(
-                ItemEntity.class, companion.getBoundingBox().inflate(12.0D))) {
+                ItemEntity.class, companion.getBoundingBox().inflate(12.0D)
+        )) {
             ItemStack stack = item.getItem();
-
             if (stack.isEmpty() || !companion.getInventory().canAddItem(stack)) continue;
 
             double distance = companion.distanceToSqr(item);
