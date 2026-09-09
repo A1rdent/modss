@@ -75,6 +75,7 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
             case 2 -> setMode(Mode.GATHER);
             case 3 -> setMode(Mode.DEPOSIT);
             case 4 -> this.companion.stopAll();
+            case 5 -> this.companion.returnToOwner();
             default -> { return false; }
         }
         return true;
