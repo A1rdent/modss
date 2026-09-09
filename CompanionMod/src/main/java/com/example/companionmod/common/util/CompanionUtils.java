@@ -8,6 +8,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.tags.BlockTags;
 
 import java.util.function.Predicate;
 
@@ -17,6 +18,10 @@ public final class CompanionUtils {
     public static final int CHEST_RANGE = 8;
 
     private CompanionUtils() {}
+
+    public static boolean isWoodBlock(BlockState state) {
+        return state.is(BlockTags.LOGS);
+    }
 
     public static boolean isOre(BlockState state) {
         var block = state.getBlock();
