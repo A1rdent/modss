@@ -1,12 +1,12 @@
 package com.example.companionmod.registry;
 
+import com.example.companionmod.common.item.CompanionSpawnerItem;
+import com.example.companionmod.common.item.CompanionWhistleItem;
+import com.example.companionmod.fabric.FabricCompanionMod;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
-
-import com.example.companionmod.common.item.CompanionSpawnerItem;
-import com.example.companionmod.fabric.FabricCompanionMod;
 
 public final class ItemRegistry {
     public static final Item COMPANION_SPAWNER = Registry.register(
@@ -15,9 +15,13 @@ public final class ItemRegistry {
             new CompanionSpawnerItem(new Item.Properties().stacksTo(1).tab(CreativeModeTab.TAB_MISC))
     );
 
+    public static final Item COMPANION_WHISTLE = Registry.register(
+            Registry.ITEM,
+            new ResourceLocation(FabricCompanionMod.MOD_ID, "companion_whistle"),
+            new CompanionWhistleItem(new Item.Properties().stacksTo(1).tab(CreativeModeTab.TAB_MISC))
+    );
+
     private ItemRegistry() {}
 
-    public static void init() {
-        // Forces class initialization and registration.
-    }
+    public static void init() {}
 }
