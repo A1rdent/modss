@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import com.example.companionmod.registry.CommandRegistry;
 import com.example.companionmod.registry.EntityTypeRegistry;
 import com.example.companionmod.registry.ItemRegistry;
+import com.example.companionmod.registry.ScreenHandlerRegistry;
 import com.example.companionmod.common.entity.CompanionEntity;
 
 public class FabricCompanionMod implements ModInitializer {
@@ -19,6 +20,7 @@ public class FabricCompanionMod implements ModInitializer {
         LOGGER.info("CompanionMod (Fabric) initializing");
         ItemRegistry.init();
         EntityTypeRegistry.init();
+        ScreenHandlerRegistry.init();
         FabricDefaultAttributeRegistry.register(EntityTypeRegistry.COMPANION, CompanionEntity.createAttributes().build());
         CommandRegistry.init();
     }
