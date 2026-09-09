@@ -1,57 +1,60 @@
 package com.example.companionmod.common.entity;
 
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkHooks;
 
-public class CompanionEntity extends LivingEntity {
+import java.util.UUID;
+
+public class CompanionEntity extends PathfinderMob {
+    private UUID ownerUuid;
     private Player owner;
-    private CompanionInventory inventory;
-    private CompanionAI companionAI;
+    private final CompanionInventory inventory;
+    private final CompanionAI companionAI;
 
-    // Command flags
-    private boolean isMining = false;
-    private boolean isGathering = false;
-    private boolean isDepositing = false;
+    private boolean isMining;
+    private boolean isGathering;
+    private boolean isDepositing;
     private boolean isFollowing = true;
 
-    public CompanionEntity(EntityType<? extends LivingEntity> entityType, Level level) {
+    public CompanionEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.inventory = new CompanionInventory(36);
         this.companionAI = new CompanionAI(this);
     }
 
     @Override
-    protected void defineSynchedData() {
-        super.defineSynchedData();
-    }
-
-    @Override
     public void tick() {
         super.tick();
 
-        if (!this.level().isClientSide && this.owner != null) {
-            this.companionAI.tick();
+        if (!this.level().isClientSide) {
+            if (this.owner == null && this.ownerUuid != null && this.level() instanceof ServerLevel serverLevel) {
+                this.owner = serverLevel.getServer().getPlayerList().getPlayer(this.ownerUuid);
+            }
+
+            if (this.owner != null) {
+                this.companionAI.tick();
+            }
         }
     }
 
     @Override
     protected void registerGoals() {
-        // Goals will be managed by CompanionAI
+        // CompanionAI manages behavior explicitly.
     }
 
     public static AttributeSupplier.Builder createAttributes() {
-        return LivingEntity.createLivingAttributes()
+        return PathfinderMob.createLivingAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.3D)
+                .add(Attributes.MOVEMENT_SPEED, 0.30D)
                 .add(Attributes.ATTACK_DAMAGE, 4.0D)
                 .add(Attributes.FOLLOW_RANGE, 32.0D)
                 .add(Attributes.ARMOR, 2.0D);
@@ -60,7 +63,9 @@ public class CompanionEntity extends LivingEntity {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        if (this.owner != null) {
+        if (this.ownerUuid != null) {
+            tag.putUUID("Owner", this.ownerUuid);
+        } else if (this.owner != null) {
             tag.putUUID("Owner", this.owner.getUUID());
         }
         tag.put("Inventory", this.inventory.serializeNBT());
@@ -74,8 +79,7 @@ public class CompanionEntity extends LivingEntity {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         if (tag.hasUUID("Owner")) {
-            // Owner UUID stored for later recovery if needed
-            tag.getUUID("Owner");
+            this.ownerUuid = tag.getUUID("Owner");
         }
         if (tag.contains("Inventory")) {
             this.inventory.deserializeNBT(tag.getCompound("Inventory"));
@@ -88,65 +92,35 @@ public class CompanionEntity extends LivingEntity {
 
     @Override
     public Packet<ClientGamePacketListener> getAddEntityPacket() {
-        return NetworkHooks.getEntitySpawningPacket(this);
+        return new ClientboundAddEntityPacket(this);
     }
 
-    // Getters and setters
     public Player getOwner() {
         return this.owner;
     }
 
     public void setOwner(Player owner) {
         this.owner = owner;
+        this.ownerUuid = owner == null ? null : owner.getUUID();
     }
 
     public CompanionInventory getInventory() {
         return this.inventory;
     }
 
-    public boolean isMining() {
-        return this.isMining;
-    }
-
-    public void setMining(boolean mining) {
-        this.isMining = mining;
-    }
-
-    public boolean isGathering() {
-        return this.isGathering;
-    }
-
-    public void setGathering(boolean gathering) {
-        this.isGathering = gathering;
-    }
-
-    public boolean isDepositing() {
-        return this.isDepositing;
-    }
-
-    public void setDepositing(boolean depositing) {
-        this.isDepositing = depositing;
-    }
-
-    public boolean isFollowing() {
-        return this.isFollowing;
-    }
-
-    public void setFollowing(boolean following) {
-        this.isFollowing = following;
-    }
+    public boolean isMining() { return this.isMining; }
+    public void setMining(boolean mining) { this.isMining = mining; }
+    public boolean isGathering() { return this.isGathering; }
+    public void setGathering(boolean gathering) { this.isGathering = gathering; }
+    public boolean isDepositing() { return this.isDepositing; }
+    public void setDepositing(boolean depositing) { this.isDepositing = depositing; }
+    public boolean isFollowing() { return this.isFollowing; }
+    public void setFollowing(boolean following) { this.isFollowing = following; }
 
     public void stopAll() {
         this.isMining = false;
         this.isGathering = false;
         this.isDepositing = false;
-    }
-
-    @Override
-    public void die(net.minecraft.world.damagesource.DamageSource damageSource) {
-        super.die(damageSource);
-        if (!this.level().isClientSide) {
-            // Inventory will be handled by drops
-        }
+        this.getNavigation().stop();
     }
 }
