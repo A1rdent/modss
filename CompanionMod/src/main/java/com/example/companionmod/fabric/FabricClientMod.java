@@ -1,6 +1,7 @@
 package com.example.companionmod.fabric;
 
 import com.example.companionmod.client.gui.CompanionScreen;
+import com.example.companionmod.client.gui.CompanionScreenHandler;
 import com.example.companionmod.client.render.CompanionEntityRenderer;
 import com.example.companionmod.registry.EntityTypeRegistry;
 import com.example.companionmod.registry.ScreenHandlerRegistry;
@@ -17,8 +18,8 @@ public class FabricClientMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         LOGGER.info("CompanionMod client initializing");
-        ScreenRegistry.register(ScreenHandlerRegistry.COMPANION,
-                (ScreenRegistry.Factory<net.minecraft.world.inventory.AbstractContainerMenu, CompanionScreen>) (handler, inventory, title) -> new CompanionScreen((com.example.companionmod.client.gui.CompanionScreenHandler) handler, inventory, title));
+        ScreenRegistry.Factory<CompanionScreenHandler, CompanionScreen> screenFactory = CompanionScreen::new;
+        ScreenRegistry.register(ScreenHandlerRegistry.COMPANION, screenFactory);
         EntityRendererRegistry.register(EntityTypeRegistry.COMPANION, CompanionEntityRenderer::new);
     }
 }
