@@ -35,7 +35,7 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
     }
 
     private static CompanionEntity findCompanion(Inventory playerInventory, int entityId) {
-        if (playerInventory.player.level().getEntity(entityId) instanceof CompanionEntity companion) {
+        if (playerInventory.player.getLevel().getEntity(entityId) instanceof CompanionEntity companion) {
             return companion;
         }
         return null;
