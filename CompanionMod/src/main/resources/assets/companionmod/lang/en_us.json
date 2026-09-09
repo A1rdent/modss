@@ -10,11 +10,12 @@
   "screen.companionmod.player_inventory": "Your inventory",
   "screen.companionmod.health": "Health: %s/%s",
   "screen.companionmod.mode": "Mode: %s",
-  "screen.companionmod.hint": "You can also use the whistle.",
+  "screen.companionmod.hint": "Use a pickaxe for mining and an axe for wood."
 
   "screen.companionmod.button.mine": "Mine",
   "screen.companionmod.button.follow": "Follow",
   "screen.companionmod.button.gather": "Gather",
+  "screen.companionmod.button.woodcut": "Chop wood",
   "screen.companionmod.button.deposit": "Store in chest",
   "screen.companionmod.button.stop": "Stop",
   "screen.companionmod.button.return": "Return to me",
@@ -23,6 +24,7 @@
   "mode.companionmod.following": "Following",
   "mode.companionmod.gathering": "Gathering",
   "mode.companionmod.depositing": "Storing",
+  "mode.companionmod.woodcutting": "Chopping wood",
   "mode.companionmod.idle": "Idle",
 
   "message.companionmod.not_owner": "This companion belongs to another player.",
