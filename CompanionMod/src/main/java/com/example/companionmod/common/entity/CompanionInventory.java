@@ -16,8 +16,7 @@ public class CompanionInventory implements Container {
         clearContent();
     }
 
-    @Override
-    public int getContainerSize() { return this.size; }
+    @Override public int getContainerSize() { return this.size; }
 
     @Override
     public ItemStack getItem(int slot) {
@@ -29,7 +28,6 @@ public class CompanionInventory implements Container {
         if (slot < 0 || slot >= this.size || amount <= 0) return ItemStack.EMPTY;
         ItemStack stack = this.items[slot];
         if (stack.isEmpty()) return ItemStack.EMPTY;
-
         ItemStack result = stack.split(amount);
         if (stack.isEmpty()) this.items[slot] = ItemStack.EMPTY;
         this.setChanged();
@@ -54,15 +52,8 @@ public class CompanionInventory implements Container {
         this.setChanged();
     }
 
-    @Override
-    public void setChanged() {
-        // Entity persistence is handled by CompanionEntity NBT serialization.
-    }
-
-    @Override
-    public boolean stillValid(net.minecraft.world.entity.player.Player player) {
-        return true;
-    }
+    @Override public void setChanged() { }
+    @Override public boolean stillValid(net.minecraft.world.entity.player.Player player) { return true; }
 
     @Override
     public void clearContent() {
@@ -72,7 +63,6 @@ public class CompanionInventory implements Container {
     public boolean canAddItem(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return true;
         int remaining = stack.getCount();
-
         for (ItemStack existing : this.items) {
             if (existing.isEmpty()) return true;
             if (ItemStack.isSameItemSameTags(existing, stack)) {
@@ -103,7 +93,9 @@ public class CompanionInventory implements Container {
         for (int i = 0; i < this.size && !stack.isEmpty(); i++) {
             if (this.items[i].isEmpty()) {
                 int transfer = Math.min(stack.getCount(), stack.getMaxStackSize());
-                this.items[i] = stack.copyWithCount(transfer);
+                ItemStack copy = stack.copy();
+                copy.setCount(transfer);
+                this.items[i] = copy;
                 stack.shrink(transfer);
                 this.setChanged();
             }
