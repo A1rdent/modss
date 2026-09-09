@@ -1,16 +1,26 @@
 package com.example.companionmod.common.entity;
 
+import com.example.companionmod.client.gui.CompanionScreenHandler;
+import com.example.companionmod.registry.ScreenHandlerRegistry;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.entity.player.Inventory;
 
 import java.util.UUID;
 
@@ -48,7 +58,27 @@ public class CompanionEntity extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
-        // CompanionAI manages behavior explicitly so commands have deterministic priority.
+        // CompanionAI manages behavior explicitly so commands and GUI have deterministic priority.
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (hand != InteractionHand.MAIN_HAND) {
+            return InteractionResult.PASS;
+        }
+
+        if (!this.isOwnedBy(player)) {
+            if (!this.level().isClientSide) {
+                player.displayClientMessage(Component.literal("This companion belongs to another player."), true);
+            }
+            return InteractionResult.sidedSuccess(this.level().isClientSide);
+        }
+
+        if (!this.level().isClientSide && player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openHandledScreen(new CompanionMenuProvider(this));
+        }
+
+        return InteractionResult.sidedSuccess(this.level().isClientSide);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -139,5 +169,28 @@ public class CompanionEntity extends PathfinderMob {
         this.isDepositing = false;
         this.isFollowing = false;
         this.getNavigation().stop();
+    }
+
+    private static final class CompanionMenuProvider implements ExtendedScreenHandlerFactory {
+        private final CompanionEntity companion;
+
+        private CompanionMenuProvider(CompanionEntity companion) {
+            this.companion = companion;
+        }
+
+        @Override
+        public Component getDisplayName() {
+            return Component.literal("Companion");
+        }
+
+        @Override
+        public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+            return new CompanionScreenHandler(containerId, playerInventory, this.companion);
+        }
+
+        @Override
+        public void writeScreenOpeningData(ServerPlayer player, FriendlyByteBuf buf) {
+            buf.writeVarInt(this.companion.getId());
+        }
     }
 }
