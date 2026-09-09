@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " II",
+    "CS ",
+    "  I"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_nugget" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "S": { "item": "minecraft:string" }
+  },
+  "result": {
+    "item": "companionmod:companion_whistle",
+    "count": 1
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "item.companionmod.companion_spawner": "Призыв компаньона",
+  "item.companionmod.companion_spawner.tooltip": "ПКМ — призвать своего компаньона",
+  "item.companionmod.companion_whistle": "Свисток компаньона",
+  "item.companionmod.companion_whistle.tooltip": "ПКМ — позвать компаньона обратно",
+  "entity.companionmod.companion": "Компаньон",
+
+  "screen.companionmod.title": "Компаньон",
+  "screen.companionmod.inventory": "Инвентарь компаньона",
+  "screen.companionmod.player_inventory": "Ваш инвентарь",
+  "screen.companionmod.health": "Здоровье: %s/%s",
+  "screen.companionmod.mode": "Режим: %s",
+  "screen.companionmod.hint": "Свисток всегда поможет вернуть его.",
+
+  "screen.companionmod.button.mine": "⛏ Добывать",
+  "screen.companionmod.button.follow": "▶ Следовать",
+  "screen.companionmod.button.gather": "✦ Собирать",
+  "screen.companionmod.button.deposit": "▣ В сундук",
+  "screen.companionmod.button.stop": "■ Остановить",
+  "screen.companionmod.button.return": "★ Вернуться ко мне",
+
+  "mode.companionmod.mining": "добывает",
+  "mode.companionmod.following": "следует",
+  "mode.companionmod.gathering": "собирает",
+  "mode.companionmod.depositing": "складывает",
+  "mode.companionmod.idle": "ничего не делает",
+
+  "message.companionmod.not_owner": "Этот компаньон принадлежит другому игроку.",
+  "message.companionmod.whistle.success": "Компаньон возвращается к вам!",
+  "message.companionmod.whistle.none": "Рядом нет вашего компаньона.",
+
+  "commands.companionmod.summon.success": "Компаньон призван",
+  "commands.companionmod.summon.failed": "Не удалось призвать компаньона",
+  "commands.companionmod.command.success": "Команда отправлена компаньону",
+  "commands.companionmod.command.failed": "Рядом нет вашего компаньона"
+}

@@ -29,7 +29,10 @@ public class CompanionEntity extends PathfinderMob {
     private Player owner;
     private final CompanionInventory inventory;
     private final CompanionAI companionAI;
-    private boolean isMining, isGathering, isDepositing;
+
+    private boolean isMining;
+    private boolean isGathering;
+    private boolean isDepositing;
     private boolean isFollowing = true;
 
     public CompanionEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
@@ -42,27 +45,38 @@ public class CompanionEntity extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
-        if (!this.getLevel().isClientSide && this.owner == null && this.ownerUuid != null
-                && this.getLevel() instanceof ServerLevel serverLevel) {
-            this.owner = serverLevel.getServer().getPlayerList().getPlayer(this.ownerUuid);
+
+        if (!getLevel().isClientSide && owner == null && ownerUuid != null
+                && getLevel() instanceof ServerLevel serverLevel) {
+            owner = serverLevel.getServer().getPlayerList().getPlayer(ownerUuid);
         }
-        if (!this.getLevel().isClientSide && this.owner != null) this.companionAI.tick();
+
+        if (!getLevel().isClientSide && owner != null) {
+            companionAI.tick();
+        }
     }
 
-    @Override protected void registerGoals() {}
+    @Override
+    protected void registerGoals() {
+        // CompanionAI has exclusive priority between all work modes.
+    }
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
-        if (!this.isOwnedBy(player)) {
-            if (!this.getLevel().isClientSide) player.displayClientMessage(
-                    Component.literal("This companion belongs to another player."), true);
-            return InteractionResult.sidedSuccess(this.getLevel().isClientSide);
+
+        if (!isOwnedBy(player)) {
+            if (!getLevel().isClientSide) {
+                player.displayClientMessage(Component.translatable("message.companionmod.not_owner"), true);
+            }
+            return InteractionResult.sidedSuccess(getLevel().isClientSide);
         }
-        if (!this.getLevel().isClientSide && player instanceof ServerPlayer serverPlayer) {
+
+        if (!getLevel().isClientSide && player instanceof ServerPlayer serverPlayer) {
             serverPlayer.openMenu(new CompanionMenuProvider(this));
         }
-        return InteractionResult.sidedSuccess(this.getLevel().isClientSide);
+
+        return InteractionResult.sidedSuccess(getLevel().isClientSide);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -77,40 +91,65 @@ public class CompanionEntity extends PathfinderMob {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        if (this.ownerUuid != null) tag.putUUID("Owner", this.ownerUuid);
-        else if (this.owner != null) tag.putUUID("Owner", this.owner.getUUID());
-        tag.put("Inventory", this.inventory.serializeNBT());
-        tag.putBoolean("IsMining", this.isMining);
-        tag.putBoolean("IsGathering", this.isGathering);
-        tag.putBoolean("IsDepositing", this.isDepositing);
-        tag.putBoolean("IsFollowing", this.isFollowing);
+
+        if (ownerUuid != null) tag.putUUID("Owner", ownerUuid);
+        else if (owner != null) tag.putUUID("Owner", owner.getUUID());
+
+        tag.put("Inventory", inventory.serializeNBT());
+        tag.putBoolean("IsMining", isMining);
+        tag.putBoolean("IsGathering", isGathering);
+        tag.putBoolean("IsDepositing", isDepositing);
+        tag.putBoolean("IsFollowing", isFollowing);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
-        if (tag.hasUUID("Owner")) this.ownerUuid = tag.getUUID("Owner");
-        if (tag.contains("Inventory")) this.inventory.deserializeNBT(tag.getCompound("Inventory"));
-        this.isMining = tag.getBoolean("IsMining");
-        this.isGathering = tag.getBoolean("IsGathering");
-        this.isDepositing = tag.getBoolean("IsDepositing");
-        this.isFollowing = tag.getBoolean("IsFollowing");
+
+        if (tag.hasUUID("Owner")) ownerUuid = tag.getUUID("Owner");
+        if (tag.contains("Inventory")) inventory.deserializeNBT(tag.getCompound("Inventory"));
+
+        isMining = tag.getBoolean("IsMining");
+        isGathering = tag.getBoolean("IsGathering");
+        isDepositing = tag.getBoolean("IsDepositing");
+        isFollowing = tag.getBoolean("IsFollowing");
     }
 
-    @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return new ClientboundAddEntityPacket(this); }
+    @Override
+    public Packet<ClientGamePacketListener> getAddEntityPacket() {
+        return new ClientboundAddEntityPacket(this);
+    }
 
-    public Player getOwner() { return this.owner; }
-    public UUID getOwnerUuid() { return this.ownerUuid; }
-    public void setOwner(Player owner) { this.owner = owner; this.ownerUuid = owner == null ? null : owner.getUUID(); }
-    public boolean isOwnedBy(Player player) { return player != null && this.ownerUuid != null && this.ownerUuid.equals(player.getUUID()); }
-    public CompanionInventory getInventory() { return this.inventory; }
+    public Player getOwner() {
+        return owner;
+    }
+
+    public UUID getOwnerUuid() {
+        return ownerUuid;
+    }
+
+    public void setOwner(Player owner) {
+        this.owner = owner;
+        this.ownerUuid = owner == null ? null : owner.getUUID();
+    }
+
+    public boolean isOwnedBy(Player player) {
+        return player != null && ownerUuid != null && ownerUuid.equals(player.getUUID());
+    }
+
+    public CompanionInventory getInventory() {
+        return inventory;
+    }
 
     public boolean isMining() { return isMining; }
     public void setMining(boolean value) { isMining = value; }
+
     public boolean isGathering() { return isGathering; }
     public void setGathering(boolean value) { isGathering = value; }
+
     public boolean isDepositing() { return isDepositing; }
     public void setDepositing(boolean value) { isDepositing = value; }
+
     public boolean isFollowing() { return isFollowing; }
     public void setFollowing(boolean value) { isFollowing = value; }
 
@@ -122,19 +161,48 @@ public class CompanionEntity extends PathfinderMob {
         return "idle";
     }
 
+    public Component getModeText() {
+        return Component.translatable("mode.companionmod." + getModeName());
+    }
+
     public void stopAll() {
-        isMining = false; isGathering = false; isDepositing = false; isFollowing = false;
+        isMining = false;
+        isGathering = false;
+        isDepositing = false;
+        isFollowing = false;
         getNavigation().stop();
+    }
+
+    public boolean returnToOwner() {
+        if (owner == null || owner.isRemoved() || owner.getLevel() != getLevel()) {
+            return false;
+        }
+
+        stopAll();
+        isFollowing = true;
+        teleportTo(owner.getX() + 1.0D, owner.getY(), owner.getZ() + 1.0D);
+        return true;
     }
 
     private static final class CompanionMenuProvider implements ExtendedScreenHandlerFactory {
         private final CompanionEntity companion;
-        private CompanionMenuProvider(CompanionEntity companion) { this.companion = companion; }
-        @Override public Component getDisplayName() { return Component.literal("Companion"); }
-        @Override public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+
+        private CompanionMenuProvider(CompanionEntity companion) {
+            this.companion = companion;
+        }
+
+        @Override
+        public Component getDisplayName() {
+            return Component.translatable("screen.companionmod.title");
+        }
+
+        @Override
+        public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
             return new CompanionScreenHandler(containerId, playerInventory, companion);
         }
-        @Override public void writeScreenOpeningData(ServerPlayer player, FriendlyByteBuf buf) {
+
+        @Override
+        public void writeScreenOpeningData(ServerPlayer player, FriendlyByteBuf buf) {
             buf.writeVarInt(companion.getId());
         }
     }

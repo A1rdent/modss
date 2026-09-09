@@ -13,10 +13,10 @@ import net.minecraft.world.item.ItemStack;
 
 public class CompanionScreenHandler extends AbstractContainerMenu {
     public static final int COMPANION_SLOTS = 36;
+
     private final CompanionEntity companion;
     private final Container companionInventory;
 
-    // Server-side constructor.
     public CompanionScreenHandler(int containerId, Inventory playerInventory, CompanionEntity companion) {
         super(ScreenHandlerRegistry.COMPANION, containerId);
         this.companion = companion;
@@ -24,7 +24,6 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
         setupSlots(playerInventory);
     }
 
-    // Client-side constructor. The server sends the companion entity id when opening the GUI.
     public CompanionScreenHandler(int containerId, Inventory playerInventory, FriendlyByteBuf buf) {
         super(ScreenHandlerRegistry.COMPANION, containerId);
         this.companion = findCompanion(playerInventory, buf.readVarInt());
@@ -44,50 +43,51 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
     private void setupSlots(Inventory playerInventory) {
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(this.companionInventory, row * 9 + col, 8 + col * 18, 20 + row * 18));
+                addSlot(new Slot(companionInventory, row * 9 + col,
+                        13 + col * 18, 27 + row * 18));
             }
         }
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(playerInventory, 9 + row * 9 + col, 8 + col * 18, 108 + row * 18));
+                addSlot(new Slot(playerInventory, 9 + row * 9 + col,
+                        13 + col * 18, 103 + row * 18));
             }
         }
 
         for (int col = 0; col < 9; col++) {
-            this.addSlot(new Slot(playerInventory, col, 8 + col * 18, 166));
+            addSlot(new Slot(playerInventory, col, 13 + col * 18, 163));
         }
     }
 
     public CompanionEntity getCompanion() {
-        return this.companion;
+        return companion;
     }
 
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
-        if (this.companion == null || !this.companion.isOwnedBy(player)) {
-            return false;
-        }
+        if (companion == null || !companion.isOwnedBy(player)) return false;
 
         switch (buttonId) {
             case 0 -> setMode(Mode.MINE);
             case 1 -> setMode(Mode.FOLLOW);
             case 2 -> setMode(Mode.GATHER);
             case 3 -> setMode(Mode.DEPOSIT);
-            case 4 -> this.companion.stopAll();
-            case 5 -> this.companion.returnToOwner();
+            case 4 -> companion.stopAll();
+            case 5 -> companion.returnToOwner();
             default -> { return false; }
         }
         return true;
     }
 
     private void setMode(Mode mode) {
-        this.companion.stopAll();
+        companion.stopAll();
+
         switch (mode) {
-            case MINE -> this.companion.setMining(true);
-            case FOLLOW -> this.companion.setFollowing(true);
-            case GATHER -> this.companion.setGathering(true);
-            case DEPOSIT -> this.companion.setDepositing(true);
+            case MINE -> companion.setMining(true);
+            case FOLLOW -> companion.setFollowing(true);
+            case GATHER -> companion.setGathering(true);
+            case DEPOSIT -> companion.setDepositing(true);
         }
     }
 
@@ -95,29 +95,33 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack result = ItemStack.EMPTY;
-        Slot slot = this.slots.get(index);
-        if (slot == null || !slot.hasItem()) return result;
+        if (index < 0 || index >= slots.size()) return ItemStack.EMPTY;
+
+        Slot slot = slots.get(index);
+        if (slot == null || !slot.hasItem()) return ItemStack.EMPTY;
 
         ItemStack stack = slot.getItem();
-        result = stack.copy();
+        ItemStack result = stack.copy();
 
         if (index < COMPANION_SLOTS) {
-            if (!this.moveItemStackTo(stack, COMPANION_SLOTS, this.slots.size(), true)) return ItemStack.EMPTY;
-        } else if (!this.moveItemStackTo(stack, 0, COMPANION_SLOTS, false)) {
+            if (!moveItemStackTo(stack, COMPANION_SLOTS, slots.size(), true)) {
+                return ItemStack.EMPTY;
+            }
+        } else if (!moveItemStackTo(stack, 0, COMPANION_SLOTS, false)) {
             return ItemStack.EMPTY;
         }
 
         if (stack.isEmpty()) slot.set(ItemStack.EMPTY);
         else slot.setChanged();
+
         return result;
     }
 
     @Override
     public boolean stillValid(Player player) {
-        if (this.companion == null) return true;
-        return this.companion.isAlive()
-                && this.companion.isOwnedBy(player)
-                && player.distanceToSqr(this.companion) < 64.0D * 64.0D;
+        return companion != null
+                && companion.isAlive()
+                && companion.isOwnedBy(player)
+                && player.distanceToSqr(companion) < 64.0D * 64.0D;
     }
 }
