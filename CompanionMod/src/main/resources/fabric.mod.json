@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "companionmod",
+  "version": "1.0.0",
+  "name": "Companion Mod",
+  "description": "A comprehensive Minecraft mod that adds a companion NPC (ported to Fabric).",
+  "authors": ["YourName"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/companionmod/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.example.companionmod.fabric.FabricCompanionMod"],
+    "client": ["com.example.companionmod.fabric.FabricClientMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "fabric": "*",
+    "minecraft": "1.19.1"
+  }
+}

@@ -1,0 +1,41 @@
+modLoader="javafxmod"
+loaderVersion="[47,)"
+license="MIT"
+issueTrackerURL="https://github.com/YourName/CompanionMod/issues"
+
+[[mods]]
+modId="companionmod"
+version="1.0.0"
+displayName="Companion Mod"
+logoFile="companionmod_logo.png"
+credits="Developed by YourName"
+authors="YourName"
+description="""
+A comprehensive Minecraft mod for Forge 1.20.1 that adds a companion NPC entity.
+
+Features:
+- Companion NPC with custom inventory (36 slots)
+- Execute commands through an interactive GUI
+- Mining and block breaking capabilities
+- Automatic resource gathering
+- Auto-deposit to nearby chests
+- Player following with smart teleportation
+- Health and damage system
+- Summoning via command or item
+
+The companion can be summoned, commanded, and will intelligently gather resources for you while you play.
+"""
+
+[[dependencies.companionmod]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.companionmod]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20,1.21)"
+    ordering="NONE"
+    side="BOTH"

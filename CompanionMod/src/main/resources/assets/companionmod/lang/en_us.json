@@ -1,0 +1,16 @@
+{
+  "item.companionmod.companion_spawner": "Companion Spawner",
+  "item.companionmod.companion_spawner.tooltip": "Right-click to summon your companion",
+  "entity.companionmod.companion": "Companion",
+  "screen.companionmod.companion": "Companion Control",
+  "screen.companionmod.companion.mine": "Mine",
+  "screen.companionmod.companion.follow": "Follow",
+  "screen.companionmod.companion.stop": "Stop",
+  "screen.companionmod.companion.inventory": "Inventory",
+  "screen.companionmod.companion.gather": "Gather",
+  "screen.companionmod.companion.deposit": "Deposit",
+  "commands.companionmod.summon.success": "Summoned a companion",
+  "commands.companionmod.summon.failed": "Failed to summon companion",
+  "commands.companionmod.command.success": "Command sent to companion",
+  "commands.companionmod.command.failed": "No companion nearby"
+}
