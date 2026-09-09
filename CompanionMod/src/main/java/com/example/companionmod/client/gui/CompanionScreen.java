@@ -66,6 +66,19 @@ public class CompanionScreen extends AbstractContainerScreen<CompanionScreenHand
         fill(poseStack, x + 202, y + 48, x + 354, y + 49, 0xFF6C4C32);
     }
 
+    private void drawSlotGrid(PoseStack poseStack, int startX, int startY, int cols, int rows) {
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
+                int sx = startX + col * 18;
+                int sy = startY + row * 18;
+                // Opaque vanilla-like slot: dark outside, light border, dark center.
+                fill(poseStack, sx - 1, sy - 1, sx + 18, sy + 18, 0xFF080808);
+                fill(poseStack, sx, sy, sx + 17, sy + 17, 0xFF8B8B8B);
+                fill(poseStack, sx + 1, sy + 1, sx + 16, sy + 16, 0xFF373737);
+            }
+        }
+    }
+
     @Override
     protected void renderLabels(PoseStack poseStack, int mouseX, int mouseY) {
         font.draw(poseStack, Component.translatable("screen.companionmod.title"), 12, 8, 0xFFFFFF);
