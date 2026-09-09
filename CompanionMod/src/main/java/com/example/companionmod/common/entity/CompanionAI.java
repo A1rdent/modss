@@ -68,6 +68,15 @@ public class CompanionAI {
         }
     }
 
+
+    public void reset() {
+        workCooldown = 0;
+        targetBlock = null;
+        stairTarget = null;
+        lastTreeLog = null;
+        mineDirection = null;
+    }
+
     private void handleMining() {
         collectNearbyDrops();
 
@@ -86,27 +95,24 @@ public class CompanionAI {
             mineDirection = companion.getDirection();
         }
 
-        // First finish entering a prepared stair step.
+        // The mining system is a deterministic state machine. It does not depend on
+        // vanilla pathfinding to enter a one-block-lower tunnel step.
         if (stairTarget != null) {
-            if (companion.distanceToSqr(Vec3.atCenterOf(stairTarget)) <= 3.0D) {
+            if (moveToMinePoint(stairTarget)) {
                 stairTarget = null;
             } else {
-                companion.getNavigation().moveTo(
-                        stairTarget.getX() + 0.5D, stairTarget.getY(), stairTarget.getZ() + 0.5D, 1.0D);
-                companion.getMoveControl().setWantedPosition(
-                        stairTarget.getX() + 0.5D, stairTarget.getY(), stairTarget.getZ() + 0.5D, 1.0D);
                 return;
             }
         }
 
-        // Ores visible from the developing tunnel have priority.
+        // Only chase ore that is exposed to the current tunnel.
         BlockPos ore = findExposedOreNearTunnel();
         if (ore != null && mineBlockWithTool(ore, pickaxeSlot, false)) {
             return;
         }
 
-        // Never wait for an ore. Build the next staircase step immediately.
-        mineStaircaseStep(pickaxeSlot);
+        // No exposed ore: immediately construct the next 2x2 stair step.
+        buildNextStairStep(pickaxeSlot);
     }
 
     private BlockPos findExposedOreNearTunnel() {
@@ -114,7 +120,7 @@ public class CompanionAI {
         Direction forward = mineDirection;
         Direction side = forward.getClockWise();
 
-        for (int fd = 0; fd <= 4; fd++) {
+        for (int fd = 0; fd <= 5; fd++) {
             for (int so = -2; so <= 2; so++) {
                 for (int yo = -1; yo <= 2; yo++) {
                     BlockPos pos = base.relative(forward, fd).relative(side, so).above(yo);
@@ -122,80 +128,114 @@ public class CompanionAI {
 
                     for (Direction d : new Direction[] {
                             forward, side, side.getOpposite(), Direction.UP, Direction.DOWN}) {
-                        if (companion.getLevel().getBlockState(pos.relative(d)).isAir()) return pos;
+                        if (companion.getLevel().getBlockState(pos.relative(d)).isAir()) {
+                            return pos;
+                        }
                     }
                 }
             }
         }
-
         return null;
     }
 
-    private void mineStaircaseStep(int pickaxeSlot) {
+    private void buildNextStairStep(int pickaxeSlot) {
         Direction forward = mineDirection;
         Direction side = forward.getClockWise();
         BlockPos current = companion.blockPosition();
 
-        // A true 2x2 staircase: one block forward and one block down.
+        // Feet position of the next lower step.
         BlockPos nextA = current.relative(forward).below();
         BlockPos nextB = nextA.relative(side);
+
+        // A 2x2 x 2-high chamber. Only this chamber is touched on this cycle.
         BlockPos nextHeadA = nextA.above();
         BlockPos nextHeadB = nextB.above();
 
-        // Require a floor below the new step, so we never make a deadly drop.
-        if (!CompanionUtils.hasSolidFloor(companion.getLevel(), nextA)
-                || !CompanionUtils.hasSolidFloor(companion.getLevel(), nextB)) {
-            // Try to turn once into another safe direction instead of stopping forever.
-            Direction[] alternatives = {
-                    forward.getClockWise(),
-                    forward.getCounterClockWise(),
-                    forward.getOpposite()
-            };
-            for (Direction candidate : alternatives) {
-                Direction candidateSide = candidate.getClockWise();
-                BlockPos altA = current.relative(candidate).below();
-                BlockPos altB = altA.relative(candidateSide);
-                if (CompanionUtils.hasSolidFloor(companion.getLevel(), altA)
-                        && CompanionUtils.hasSolidFloor(companion.getLevel(), altB)) {
-                    mineDirection = candidate;
-                    forward = candidate;
-                    side = candidateSide;
-                    nextA = altA;
-                    nextB = altB;
-                    nextHeadA = nextA.above();
-                    nextHeadB = nextB.above();
-                    break;
-                }
-            }
+        BlockPos[] chamber = {nextA, nextB, nextHeadA, nextHeadB};
 
-            if (!CompanionUtils.hasSolidFloor(companion.getLevel(), nextA)
-                    || !CompanionUtils.hasSolidFloor(companion.getLevel(), nextB)) {
+        // If the floor below the future step is missing, choose a different forward
+        // direction. We never deliberately dig into a ravine or make a free fall.
+        if (!isSafeStepFloor(nextA) || !isSafeStepFloor(nextB)) {
+            Direction turned = findSafeMiningDirection(current);
+            if (turned == null) {
                 companion.getNavigation().stop();
                 return;
             }
+            mineDirection = turned;
+            return;
         }
 
-        // Clear exactly the four blocks of the next 2x2 chamber.
-        BlockPos[] chamber = {nextA, nextB, nextHeadA, nextHeadB};
-
+        // Break exactly one block per action. This guarantees visible progress.
         for (BlockPos pos : chamber) {
             BlockState state = companion.getLevel().getBlockState(pos);
             if (state.isAir()) continue;
+
             if (!CompanionUtils.isMineableBlock(state)) {
                 companion.getNavigation().stop();
                 return;
             }
+
             if (workCooldown > 0) return;
 
-            if (mineBlockWithTool(pos, pickaxeSlot, false)) return;
+            if (mineBlockWithTool(pos, pickaxeSlot, false)) {
+                return;
+            }
         }
 
-        // The new 2x2 step is open. Walk into it and continue next tick.
-        stairTarget = nextA;
-        companion.getNavigation().moveTo(
-                nextA.getX() + 0.5D, nextA.getY(), nextA.getZ() + 0.5D, 1.0D);
-        companion.getMoveControl().setWantedPosition(
-                nextA.getX() + 0.5D, nextA.getY(), nextA.getZ() + 0.5D, 1.0D);
+        // Chamber is open. Move the entity one full block forward and one block down
+        // using our own waypoint controller. No NavMesh/pathfinding is required.
+        stairTarget = nextA.immutable();
+        moveToMinePoint(stairTarget);
+    }
+
+    private boolean isSafeStepFloor(BlockPos feet) {
+        BlockPos floor = feet.below();
+        BlockState state = companion.getLevel().getBlockState(floor);
+        return !state.isAir() && state.getFluidState().isEmpty()
+                && state.isSolidRender(companion.getLevel(), floor);
+    }
+
+    private Direction findSafeMiningDirection(BlockPos current) {
+        Direction original = mineDirection;
+        Direction[] candidates = {
+                original.getClockWise(),
+                original.getCounterClockWise(),
+                original.getOpposite()
+        };
+
+        for (Direction d : candidates) {
+            BlockPos a = current.relative(d).below();
+            BlockPos b = a.relative(d.getClockWise());
+            if (isSafeStepFloor(a) && isSafeStepFloor(b)) {
+                return d;
+            }
+        }
+        return null;
+    }
+
+    private boolean moveToMinePoint(BlockPos target) {
+        Vec3 destination = new Vec3(
+                target.getX() + 0.5D,
+                target.getY() + 0.02D,
+                target.getZ() + 0.5D);
+
+        Vec3 current = companion.position();
+        Vec3 delta = destination.subtract(current);
+        double distance = delta.length();
+
+        if (distance <= 0.12D) {
+            companion.setPos(destination.x, destination.y, destination.z);
+            companion.setDeltaMovement(Vec3.ZERO);
+            return true;
+        }
+
+        double speed = 0.12D;
+        Vec3 step = delta.scale(Math.min(speed / distance, 1.0D));
+        companion.setPos(current.x + step.x, current.y + step.y, current.z + step.z);
+        companion.setDeltaMovement(Vec3.ZERO);
+        companion.hasImpulse = true;
+        companion.getLookControl().setLookAt(destination.x, destination.y + 0.8D, destination.z);
+        return false;
     }
 
     private void handleWoodcutting() {
