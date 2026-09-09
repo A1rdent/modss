@@ -29,26 +29,26 @@ public class CompanionEntity extends PathfinderMob {
         super(entityType, level);
         this.inventory = new CompanionInventory(36);
         this.companionAI = new CompanionAI(this);
+        this.setPersistenceRequired();
     }
 
     @Override
     public void tick() {
         super.tick();
 
-        if (!this.level().isClientSide) {
-            if (this.owner == null && this.ownerUuid != null && this.level() instanceof ServerLevel serverLevel) {
-                this.owner = serverLevel.getServer().getPlayerList().getPlayer(this.ownerUuid);
-            }
+        if (!this.level().isClientSide && this.owner == null && this.ownerUuid != null
+                && this.level() instanceof ServerLevel serverLevel) {
+            this.owner = serverLevel.getServer().getPlayerList().getPlayer(this.ownerUuid);
+        }
 
-            if (this.owner != null) {
-                this.companionAI.tick();
-            }
+        if (!this.level().isClientSide && this.owner != null) {
+            this.companionAI.tick();
         }
     }
 
     @Override
     protected void registerGoals() {
-        // CompanionAI manages behavior explicitly.
+        // CompanionAI manages behavior explicitly so commands have deterministic priority.
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -99,9 +99,17 @@ public class CompanionEntity extends PathfinderMob {
         return this.owner;
     }
 
+    public UUID getOwnerUuid() {
+        return this.ownerUuid;
+    }
+
     public void setOwner(Player owner) {
         this.owner = owner;
         this.ownerUuid = owner == null ? null : owner.getUUID();
+    }
+
+    public boolean isOwnedBy(Player player) {
+        return player != null && this.ownerUuid != null && this.ownerUuid.equals(player.getUUID());
     }
 
     public CompanionInventory getInventory() {
@@ -117,10 +125,19 @@ public class CompanionEntity extends PathfinderMob {
     public boolean isFollowing() { return this.isFollowing; }
     public void setFollowing(boolean following) { this.isFollowing = following; }
 
+    public String getModeName() {
+        if (this.isMining) return "mining";
+        if (this.isGathering) return "gathering";
+        if (this.isDepositing) return "depositing";
+        if (this.isFollowing) return "following";
+        return "idle";
+    }
+
     public void stopAll() {
         this.isMining = false;
         this.isGathering = false;
         this.isDepositing = false;
+        this.isFollowing = false;
         this.getNavigation().stop();
     }
 }
