@@ -30,12 +30,7 @@ public final class CompanionCommand {
         Player player = context.getSource().getPlayerOrException();
         ServerLevel level = context.getSource().getLevel();
 
-        CompanionEntity companion = EntityTypeRegistry.COMPANION.create(level);
-        if (companion == null) {
-            context.getSource().sendFailure(Component.literal("Could not create companion entity."));
-            return 0;
-        }
-
+        CompanionEntity companion = new CompanionEntity(EntityTypeRegistry.COMPANION, level);
         companion.moveTo(player.getX() + 1.5D, player.getY(), player.getZ() + 1.5D, player.getYRot(), 0.0F);
         companion.setOwner(player);
         level.addFreshEntity(companion);
