@@ -14,59 +14,109 @@ public final class CompanionCommand {
     private CompanionCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("companion")
-                        .requires(source -> source.hasPermission(2))
-                        .then(Commands.literal("summon").executes(CompanionCommand::summon))
-                        .then(Commands.literal("stop").executes(CompanionCommand::stop))
-        );
+        dispatcher.register(Commands.literal("companion")
+                .requires(source -> source.getEntity() instanceof Player)
+                .then(Commands.literal("summon").executes(CompanionCommand::summon))
+                .then(Commands.literal("follow").executes(ctx -> setMode(ctx, Mode.FOLLOW)))
+                .then(Commands.literal("mine").executes(ctx -> setMode(ctx, Mode.MINE)))
+                .then(Commands.literal("gather").executes(ctx -> setMode(ctx, Mode.GATHER)))
+                .then(Commands.literal("deposit").executes(ctx -> setMode(ctx, Mode.DEPOSIT)))
+                .then(Commands.literal("stop").executes(CompanionCommand::stop))
+                .then(Commands.literal("status").executes(CompanionCommand::status))
+                .then(Commands.literal("help").executes(CompanionCommand::help)));
     }
 
     private static int summon(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-        Player player;
-        try {
-            player = source.getPlayerOrException();
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("This command must be run by a player."));
+        Player player = context.getSource().getPlayerOrException();
+        ServerLevel level = context.getSource().getLevel();
+
+        CompanionEntity companion = EntityTypeRegistry.COMPANION.create(level);
+        if (companion == null) {
+            context.getSource().sendFailure(Component.literal("Could not create companion entity."));
             return 0;
         }
 
-        ServerLevel level = source.getLevel();
-        CompanionEntity companion = new CompanionEntity(EntityTypeRegistry.COMPANION, level);
-        companion.setPos(player.getX() + 1.0D, player.getY(), player.getZ());
+        companion.moveTo(player.getX() + 1.5D, player.getY(), player.getZ() + 1.5D, player.getYRot(), 0.0F);
         companion.setOwner(player);
         level.addFreshEntity(companion);
 
-        source.sendSuccess(() -> Component.literal("Summoned a companion!"), true);
+        context.getSource().sendSuccess(() -> Component.literal("Companion summoned. Use /companion help for commands."), false);
+        return 1;
+    }
+
+    private enum Mode { FOLLOW, MINE, GATHER, DEPOSIT }
+
+    private static int setMode(CommandContext<CommandSourceStack> context, Mode mode) {
+        Player player = context.getSource().getPlayerOrException();
+        CompanionEntity companion = findNearestOwned(player);
+        if (companion == null) {
+            context.getSource().sendFailure(Component.literal("No owned companion found within 64 blocks."));
+            return 0;
+        }
+
+        companion.stopAll();
+        switch (mode) {
+            case FOLLOW -> companion.setFollowing(true);
+            case MINE -> companion.setMining(true);
+            case GATHER -> companion.setGathering(true);
+            case DEPOSIT -> companion.setDepositing(true);
+        }
+
+        String name = mode.name().toLowerCase();
+        context.getSource().sendSuccess(() -> Component.literal("Companion mode: " + name), false);
         return 1;
     }
 
     private static int stop(CommandContext<CommandSourceStack> context) {
-        CommandSourceStack source = context.getSource();
-        Player player;
-        try {
-            player = source.getPlayerOrException();
-        } catch (Exception e) {
-            source.sendFailure(Component.literal("This command must be run by a player."));
-            return 0;
-        }
-
+        Player player = context.getSource().getPlayerOrException();
         int stopped = 0;
-        for (CompanionEntity companion : source.getLevel().getEntitiesOfClass(
-                CompanionEntity.class, player.getBoundingBox().inflate(50))) {
-            if (companion.getOwner() == player) {
+        for (CompanionEntity companion : player.level().getEntitiesOfClass(
+                CompanionEntity.class, player.getBoundingBox().inflate(64.0D))) {
+            if (companion.isOwnedBy(player)) {
                 companion.stopAll();
                 stopped++;
             }
         }
 
         final int count = stopped;
-        if (count > 0) {
-            source.sendSuccess(() -> Component.literal("Stopped " + count + " companion(s)"), true);
-        } else {
-            source.sendFailure(Component.literal("No companions found"));
+        context.getSource().sendSuccess(() -> Component.literal(
+                count == 0 ? "No owned companions found." : "Stopped " + count + " companion(s)."), false);
+        return stopped;
+    }
+
+    private static int status(CommandContext<CommandSourceStack> context) {
+        Player player = context.getSource().getPlayerOrException();
+        CompanionEntity companion = findNearestOwned(player);
+        if (companion == null) {
+            context.getSource().sendFailure(Component.literal("No owned companion found within 64 blocks."));
+            return 0;
         }
-        return count;
+
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Companion: " + companion.getModeName()
+                        + " | HP " + (int) companion.getHealth() + "/" + (int) companion.getMaxHealth()
+                        + " | inventory " + companion.getInventory().getContainerSize() + " slots"), false);
+        return 1;
+    }
+
+    private static int help(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendSuccess(() -> Component.literal(
+                "/companion summon | follow | mine | gather | deposit | stop | status"), false);
+        return 1;
+    }
+
+    private static CompanionEntity findNearestOwned(Player player) {
+        CompanionEntity nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (CompanionEntity companion : player.level().getEntitiesOfClass(
+                CompanionEntity.class, player.getBoundingBox().inflate(64.0D))) {
+            if (!companion.isOwnedBy(player)) continue;
+            double distance = player.distanceToSqr(companion);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = companion;
+            }
+        }
+        return nearest;
     }
 }
