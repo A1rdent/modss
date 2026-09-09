@@ -1,19 +1,14 @@
 package com.example.companionmod.client.gui;
 
-import com.example.companionmod.fabric.FabricCompanionMod;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class CompanionScreen extends AbstractContainerScreen<CompanionScreenHandler> {
     private static final int GUI_WIDTH = 360;
     private static final int GUI_HEIGHT = 206;
-
-    private static final ResourceLocation GUI_TEXTURE =
-            new ResourceLocation(FabricCompanionMod.MOD_ID, "textures/gui/companion_gui.png");
 
     public CompanionScreen(CompanionScreenHandler handler, Inventory playerInventory, Component title) {
         super(handler, playerInventory, title);
@@ -29,10 +24,10 @@ public class CompanionScreen extends AbstractContainerScreen<CompanionScreenHand
         this.topPos = (this.height - this.imageHeight) / 2;
 
         int x = this.leftPos + 198;
-        int y = this.topPos + 52;
+        int y = this.topPos + 50;
         int w = 150;
         int h = 20;
-        int gap = 23;
+        int gap = 24;
 
         addRenderableWidget(new Button(x, y, w, h,
                 Component.translatable("screen.companionmod.button.mine"), b -> press(0)));
@@ -56,17 +51,28 @@ public class CompanionScreen extends AbstractContainerScreen<CompanionScreenHand
 
     @Override
     protected void renderBg(PoseStack poseStack, float partialTick, int mouseX, int mouseY) {
-        if (minecraft == null) return;
+        int x = leftPos;
+        int y = topPos;
 
-        minecraft.getTextureManager().bindForSetup(GUI_TEXTURE);
-        blit(poseStack, leftPos, topPos, 0, 0, GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
+        // Clean Minecraft-style panels. Item slots themselves are rendered by AbstractContainerScreen,
+        // so we deliberately do not draw a custom texture over them.
+        fill(poseStack, x, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFF101010);
+        fill(poseStack, x + 3, y + 3, x + 193, y + 203, 0xFF3A2A1F);
+        fill(poseStack, x + 198, y + 3, x + 357, y + 203, 0xFF251B16);
+
+        // Inventory headers.
+        fill(poseStack, x + 8, y + 22, x + 188, y + 23, 0xFF6C4C32);
+        fill(poseStack, x + 8, y + 99, x + 188, y + 100, 0xFF6C4C32);
+
+        // Status area separator.
+        fill(poseStack, x + 204, y + 42, x + 351, y + 43, 0xFF6C4C32);
     }
 
     @Override
     protected void renderLabels(PoseStack poseStack, int mouseX, int mouseY) {
-        font.draw(poseStack, Component.translatable("screen.companionmod.title"), 12, 8, 0xFFFFFF);
-        font.draw(poseStack, Component.translatable("screen.companionmod.inventory"), 12, 16, 0xE8D7C4);
-        font.draw(poseStack, Component.translatable("screen.companionmod.player_inventory"), 12, 94, 0xE8D7C4);
+        font.draw(poseStack, Component.translatable("screen.companionmod.title"), 12, 7, 0xFFFFFF);
+        font.draw(poseStack, Component.translatable("screen.companionmod.inventory"), 12, 9, 0xE8D7C4);
+        font.draw(poseStack, Component.translatable("screen.companionmod.player_inventory"), 12, 91, 0xE8D7C4);
 
         if (menu.getCompanion() != null) {
             var companion = menu.getCompanion();
@@ -74,11 +80,11 @@ public class CompanionScreen extends AbstractContainerScreen<CompanionScreenHand
             font.draw(poseStack,
                     Component.translatable("screen.companionmod.health",
                             (int) companion.getHealth(), (int) companion.getMaxHealth()),
-                    204, 12, 0xFFFFFF);
+                    204, 10, 0xFFFFFF);
 
             font.draw(poseStack,
                     Component.translatable("screen.companionmod.mode", companion.getModeText()),
-                    204, 27, 0xE8D7C4);
+                    204, 26, 0xE8D7C4);
 
             font.draw(poseStack,
                     Component.translatable("screen.companionmod.hint"),
