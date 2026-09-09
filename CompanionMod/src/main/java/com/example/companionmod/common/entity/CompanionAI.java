@@ -15,149 +15,84 @@ public class CompanionAI {
     private int tickCounter;
     private BlockPos targetBlock;
 
-    public CompanionAI(CompanionEntity companion) {
-        this.companion = companion;
-    }
+    public CompanionAI(CompanionEntity companion) { this.companion = companion; }
 
     public void tick() {
-        Player owner = this.companion.getOwner();
+        Player owner = companion.getOwner();
         if (owner == null) return;
-
-        this.tickCounter++;
-
-        // Only one work mode runs at a time. This prevents following from fighting
-        // with mining/gathering/deposit navigation.
-        if (this.companion.isMining()) {
-            if (this.tickCounter % 5 == 0) this.handleMining();
-        } else if (this.companion.isGathering()) {
-            if (this.tickCounter % 5 == 0) this.handleGathering();
-        } else if (this.companion.isDepositing()) {
-            if (this.tickCounter % 10 == 0) this.handleAutoDeposit();
-        } else if (this.companion.isFollowing()) {
-            this.handleFollowing(owner);
-        }
+        tickCounter++;
+        if (companion.isMining()) { if (tickCounter % 5 == 0) handleMining(); }
+        else if (companion.isGathering()) { if (tickCounter % 5 == 0) handleGathering(); }
+        else if (companion.isDepositing()) { if (tickCounter % 10 == 0) handleAutoDeposit(); }
+        else if (companion.isFollowing()) handleFollowing(owner);
     }
 
     private void handleFollowing(Player owner) {
-        double distance = this.companion.distanceToSqr(owner);
-
-        if (distance > CompanionUtils.FOLLOW_DISTANCE_TELEPORT * CompanionUtils.FOLLOW_DISTANCE_TELEPORT) {
-            this.companion.teleportTo(owner.getX() + 1.0D, owner.getY(), owner.getZ() + 1.0D);
-            this.companion.getNavigation().stop();
-        } else if (distance > CompanionUtils.FOLLOW_DISTANCE_WALK * CompanionUtils.FOLLOW_DISTANCE_WALK) {
-            this.companion.getNavigation().moveTo(owner, 1.0D);
-            this.companion.getLookControl().setLookAt(owner);
-        } else {
-            this.companion.getNavigation().stop();
-        }
+        double distance = companion.distanceToSqr(owner);
+        if (distance > 2500.0D) {
+            companion.teleportTo(owner.getX() + 1.0D, owner.getY(), owner.getZ() + 1.0D);
+            companion.getNavigation().stop();
+        } else if (distance > 16.0D) {
+            companion.getNavigation().moveTo(owner, 1.0D);
+            companion.getLookControl().setLookAt(owner);
+        } else companion.getNavigation().stop();
     }
 
     private void handleMining() {
-        if (this.targetBlock == null
-                || !CompanionUtils.isMinableBlock(this.companion.level().getBlockState(this.targetBlock))) {
-            this.targetBlock = CompanionUtils.findNearestBlock(
-                    this.companion.level(),
-                    this.companion.blockPosition(),
-                    CompanionUtils.MINING_RANGE,
-                    CompanionUtils::isMinableBlock
-            );
+        if (targetBlock == null || !CompanionUtils.isMinableBlock(companion.getLevel().getBlockState(targetBlock))) {
+            targetBlock = CompanionUtils.findNearestBlock(companion.getLevel(), companion.blockPosition(),
+                    CompanionUtils.MINING_RANGE, CompanionUtils::isMinableBlock);
         }
+        if (targetBlock == null) { companion.getNavigation().stop(); return; }
 
-        if (this.targetBlock == null) {
-            this.companion.getNavigation().stop();
-            return;
-        }
-
-        double distance = this.companion.distanceToSqr(Vec3.atCenterOf(this.targetBlock));
+        double distance = companion.distanceToSqr(Vec3.atCenterOf(targetBlock));
         if (distance > 9.0D) {
-            this.companion.getNavigation().moveTo(
-                    this.targetBlock.getX() + 0.5D,
-                    this.targetBlock.getY(),
-                    this.targetBlock.getZ() + 0.5D,
-                    1.0D);
+            companion.getNavigation().moveTo(targetBlock.getX() + 0.5D, targetBlock.getY(),
+                    targetBlock.getZ() + 0.5D, 1.0D);
             return;
         }
-
-        this.companion.getNavigation().stop();
-        if (distance < 9.0D) {
-            boolean destroyed = this.companion.level().destroyBlock(this.targetBlock, true, this.companion);
-            if (destroyed) {
-                this.targetBlock = null;
-            }
-        }
+        companion.getNavigation().stop();
+        if (companion.getLevel().destroyBlock(targetBlock, true, companion)) targetBlock = null;
     }
 
     private void handleGathering() {
         ItemEntity nearest = null;
         double nearestDistance = Double.MAX_VALUE;
-
-        for (ItemEntity itemEntity : this.companion.level().getEntitiesOfClass(
-                ItemEntity.class, this.companion.getBoundingBox().inflate(12.0D))) {
-            ItemStack stack = itemEntity.getItem();
-            if (stack.isEmpty() || !this.companion.getInventory().canAddItem(stack)) continue;
-
-            double distance = this.companion.distanceToSqr(itemEntity);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = itemEntity;
-            }
+        for (ItemEntity item : companion.getLevel().getEntitiesOfClass(ItemEntity.class,
+                companion.getBoundingBox().inflate(12.0D))) {
+            ItemStack stack = item.getItem();
+            if (stack.isEmpty() || !companion.getInventory().canAddItem(stack)) continue;
+            double distance = companion.distanceToSqr(item);
+            if (distance < nearestDistance) { nearestDistance = distance; nearest = item; }
         }
-
-        if (nearest == null) {
-            this.companion.getNavigation().stop();
-            return;
-        }
-
-        if (nearestDistance > 2.25D) {
-            this.companion.getNavigation().moveTo(nearest, 1.1D);
-            return;
-        }
-
+        if (nearest == null) { companion.getNavigation().stop(); return; }
+        if (nearestDistance > 2.25D) { companion.getNavigation().moveTo(nearest, 1.1D); return; }
         ItemStack stack = nearest.getItem();
-        this.companion.getInventory().addItem(stack);
-        if (stack.isEmpty()) {
-            nearest.discard();
-        } else {
-            nearest.setItem(stack);
-        }
+        companion.getInventory().addItem(stack);
+        if (stack.isEmpty()) nearest.discard(); else nearest.setItem(stack);
     }
 
     private void handleAutoDeposit() {
-        BlockPos chestPos = CompanionUtils.findNearestBlock(
-                this.companion.level(),
-                this.companion.blockPosition(),
-                CompanionUtils.CHEST_RANGE,
-                state -> state.getBlock() == Blocks.CHEST
-        );
+        BlockPos chestPos = CompanionUtils.findNearestBlock(companion.getLevel(), companion.blockPosition(),
+                CompanionUtils.CHEST_RANGE, state -> state.getBlock() == Blocks.CHEST);
+        if (chestPos == null) { companion.getNavigation().stop(); return; }
 
-        if (chestPos == null) {
-            this.companion.getNavigation().stop();
-            return;
-        }
-
-        double distance = this.companion.distanceToSqr(Vec3.atCenterOf(chestPos));
+        double distance = companion.distanceToSqr(Vec3.atCenterOf(chestPos));
         if (distance > 9.0D) {
-            this.companion.getNavigation().moveTo(
-                    chestPos.getX() + 0.5D, chestPos.getY(), chestPos.getZ() + 0.5D, 1.0D);
+            companion.getNavigation().moveTo(chestPos.getX() + 0.5D, chestPos.getY(), chestPos.getZ() + 0.5D, 1.0D);
             return;
         }
-
-        BlockEntity blockEntity = this.companion.level().getBlockEntity(chestPos);
-        if (blockEntity instanceof ChestBlockEntity chest) {
-            this.depositToChest(chest);
-        }
+        BlockEntity entity = companion.getLevel().getBlockEntity(chestPos);
+        if (entity instanceof ChestBlockEntity chest) depositToChest(chest);
     }
 
     private void depositToChest(ChestBlockEntity chest) {
-        for (int i = 0; i < this.companion.getInventory().getContainerSize(); i++) {
-            ItemStack stack = this.companion.getInventory().getItem(i);
+        for (int i = 0; i < companion.getInventory().getContainerSize(); i++) {
+            ItemStack stack = companion.getInventory().getItem(i);
             if (stack.isEmpty()) continue;
-
             int before = stack.getCount();
             CompanionUtils.depositToChest(chest, stack);
-            if (stack.getCount() != before) {
-                this.companion.getInventory().setChanged();
-            }
+            if (stack.getCount() != before) companion.getInventory().setChanged();
         }
     }
 }
