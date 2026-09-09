@@ -4,6 +4,7 @@ import com.example.companionmod.common.util.CompanionUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
@@ -23,10 +24,10 @@ import java.util.Set;
 public class CompanionAI {
     private final CompanionEntity companion;
     private int tickCounter;
+    private int workCooldown;
     private BlockPos targetBlock;
     private BlockPos lastTreeLog;
     private Direction mineDirection;
-    private int workCooldown;
 
     public CompanionAI(CompanionEntity companion) {
         this.companion = companion;
@@ -71,7 +72,7 @@ public class CompanionAI {
 
         int pickaxeSlot = findPickaxeSlot();
         if (pickaxeSlot < 0) {
-            stopForMissingTool("Для шахты нужна кирка в инвентаре.");
+            stopForMissingTool("Для шахты положи кирку в инвентарь компаньона.");
             return;
         }
 
@@ -84,73 +85,119 @@ public class CompanionAI {
             mineDirection = companion.getDirection();
         }
 
-        // First look for ore close to the current tunnel. Ore is always the priority.
-        BlockPos ore = CompanionUtils.findNearestOre(
-                companion.getLevel(), companion.blockPosition(), 10);
+        // First check the tunnel walls, floor and ceiling for nearby ore.
+        // We intentionally do NOT chase a buried ore vein across the map, because that
+        // can leave navigation stuck in solid rock.
+        BlockPos ore = findExposedOreNearTunnel();
         if (ore != null) {
-            targetBlock = ore;
-            if (mineBlockWithTool(ore, pickaxeSlot, false)) {
-                return;
-            }
+            if (mineBlockWithTool(ore, pickaxeSlot, false)) return;
         }
 
-        // No ore: always continue the 2x2 staircase instead of standing still.
-        targetBlock = null;
+        // Always make measurable progress: build a continuous 2x2 descending tunnel.
         mineStaircaseStep(pickaxeSlot);
     }
 
-    private void mineStaircaseStep(int pickaxeSlot) {
-        Direction direction = mineDirection;
-        Direction width = direction.getClockWise();
+    private BlockPos findExposedOreNearTunnel() {
+        BlockPos base = companion.blockPosition();
+        Direction forward = mineDirection;
+        Direction side = forward.getClockWise();
 
-        // The next walkable position is exactly one block lower and one block forward.
-        BlockPos nextFloor = companion.blockPosition().relative(direction).below();
-        BlockPos nextFloorSide = nextFloor.relative(width);
-        BlockPos nextHead = nextFloor.above();
-        BlockPos nextHeadSide = nextFloorSide.above();
+        // Scan the current 2x2 tunnel area plus the four surrounding wall faces.
+        // Ore is only selected when it is close enough to be reached from the tunnel.
+        for (int forwardDistance = 0; forwardDistance <= 3; forwardDistance++) {
+            for (int sideOffset = -2; sideOffset <= 2; sideOffset++) {
+                for (int yOffset = -1; yOffset <= 2; yOffset++) {
+                    BlockPos pos = base.relative(forward, forwardDistance)
+                            .relative(side, sideOffset)
+                            .above(yOffset);
+                    BlockState state = companion.getLevel().getBlockState(pos);
+                    if (!CompanionUtils.isOre(state)) continue;
 
-        // We need a real floor one block below the next step. Never dig ourselves into empty space.
-        if (!CompanionUtils.hasSolidFloor(companion.getLevel(), nextFloor)
-                || !CompanionUtils.hasSolidFloor(companion.getLevel(), nextFloorSide)) {
-            // Try turning the corridor rather than digging straight down into a cave.
-            Direction alternate = direction.getClockWise();
-            BlockPos alt = companion.blockPosition().relative(alternate).below();
-            BlockPos altSide = alt.relative(alternate.getClockWise());
-            if (CompanionUtils.hasSolidFloor(companion.getLevel(), alt)
-                    && CompanionUtils.hasSolidFloor(companion.getLevel(), altSide)) {
-                mineDirection = alternate;
-                direction = alternate;
-                width = direction.getClockWise();
-                nextFloor = companion.blockPosition().relative(direction).below();
-                nextFloorSide = nextFloor.relative(width);
-                nextHead = nextFloor.above();
-                nextHeadSide = nextFloorSide.above();
-            } else {
-                companion.getNavigation().stop();
-                return;
+                    // Only use ore at/near the tunnel surface. If another solid block
+                    // is directly between the companion and the ore, keep tunnelling.
+                    if (isExposedToTunnel(pos, base, forward, side)) return pos;
+                }
             }
         }
+        return null;
+    }
 
-        // If any of the four 2x2 corridor blocks are solid, remove one at a time.
-        BlockPos[] blocks = {nextFloor, nextFloorSide, nextHead, nextHeadSide};
-        for (BlockPos pos : blocks) {
+    private boolean isExposedToTunnel(BlockPos ore, BlockPos base, Direction forward, Direction side) {
+        for (Direction d : new Direction[] {forward, side, side.getOpposite(), Direction.UP, Direction.DOWN}) {
+            BlockPos neighbor = ore.relative(d);
+            double dx = neighbor.getX() - base.getX();
+            double dy = neighbor.getY() - base.getY();
+            double dz = neighbor.getZ() - base.getZ();
+            if (dx * dx + dy * dy + dz * dz <= 6.0D
+                    && companion.getLevel().getBlockState(neighbor).isAir()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void mineStaircaseStep(int pickaxeSlot) {
+        Direction forward = mineDirection;
+        Direction side = forward.getClockWise();
+
+        BlockPos current = companion.blockPosition();
+        BlockPos next = current.relative(forward).below();
+        BlockPos nextSide = next.relative(side);
+        BlockPos nextHead = next.above();
+        BlockPos nextHeadSide = nextSide.above();
+
+        // Never dig below the companion's current feet. We clear ONLY the next step.
+        BlockPos[] stepBlocks = {next, nextSide, nextHead, nextHeadSide};
+
+        // If the next step has a solid floor, clear the two-wide step one block at a time.
+        if (!CompanionUtils.hasSolidFloor(companion.getLevel(), next)
+                || !CompanionUtils.hasSolidFloor(companion.getLevel(), nextSide)) {
+            // Try a simple horizontal turn if terrain opens up there.
+            Direction turn = forward.getClockWise();
+            if (trySetAlternativeDirection(turn)) {
+                mineDirection = turn;
+                return;
+            }
+            companion.getNavigation().stop();
+            return;
+        }
+
+        for (BlockPos pos : stepBlocks) {
             BlockState state = companion.getLevel().getBlockState(pos);
             if (state.isAir()) continue;
+
             if (!CompanionUtils.isMineableBlock(state)) {
                 companion.getNavigation().stop();
                 return;
             }
+
             if (workCooldown > 0) return;
-            if (mineBlockWithTool(pos, pickaxeSlot, false)) return;
+
+            if (!mineBlockWithTool(pos, pickaxeSlot, false)) {
+                return;
+            }
+
+            // Break one block per action; next tick continues the staircase.
+            return;
         }
 
-        // The 2x2 step is open. Walk down into it.
+        // The next 2x2 step is completely open. Walk down and forward.
         companion.getNavigation().moveTo(
-                nextFloor.getX() + 0.5D,
-                nextFloor.getY(),
-                nextFloor.getZ() + 0.5D,
+                next.getX() + 0.5D,
+                next.getY(),
+                next.getZ() + 0.5D,
                 1.0D
         );
+    }
+
+    private boolean trySetAlternativeDirection(Direction direction) {
+        if (!direction.getAxis().isHorizontal()) return false;
+        Direction side = direction.getClockWise();
+        BlockPos next = companion.blockPosition().relative(direction).below();
+        BlockPos nextSide = next.relative(side);
+
+        return CompanionUtils.hasSolidFloor(companion.getLevel(), next)
+                && CompanionUtils.hasSolidFloor(companion.getLevel(), nextSide);
     }
 
     private void handleWoodcutting() {
@@ -158,7 +205,7 @@ public class CompanionAI {
 
         int axeSlot = findAxeSlot();
         if (axeSlot < 0) {
-            stopForMissingTool("Для рубки леса нужен топор в инвентаре.");
+            stopForMissingTool("Для рубки леса положи топор в инвентарь компаньона.");
             return;
         }
 
@@ -167,8 +214,9 @@ public class CompanionAI {
             return;
         }
 
-        // Keep working on the same tree instead of selecting an unrelated log every tick.
-        BlockPos log = findNextTreeLog();
+        // Continuously find the nearest log. This means every log in a large tree
+        // remains a target after the first two blocks are removed.
+        BlockPos log = findNearestLog();
         if (log == null) {
             companion.getNavigation().stop();
             lastTreeLog = null;
@@ -180,23 +228,37 @@ public class CompanionAI {
         }
     }
 
-    private BlockPos findNextTreeLog() {
-        if (lastTreeLog != null && CompanionUtils.isWoodBlock(
-                companion.getLevel().getBlockState(lastTreeLog))) {
-            return lastTreeLog;
-        }
+    private BlockPos findNearestLog() {
+        BlockPos nearest = null;
+        double best = Double.MAX_VALUE;
 
-        // Search for the nearest log. After breaking one, nearby connected logs are picked first.
+        // Prefer a log connected to the previous target.
         if (lastTreeLog != null) {
             BlockPos connected = findConnectedLog(lastTreeLog);
             if (connected != null) return connected;
         }
 
-        return CompanionUtils.findNearestBlock(
-                companion.getLevel(),
-                companion.blockPosition(),
-                16,
-                CompanionUtils::isWoodBlock);
+        int range = 16;
+        BlockPos center = companion.blockPosition();
+
+        for (int x = -range; x <= range; x++) {
+            for (int y = -range; y <= range; y++) {
+                for (int z = -range; z <= range; z++) {
+                    BlockPos pos = center.offset(x, y, z);
+                    BlockState state = companion.getLevel().getBlockState(pos);
+
+                    if (!CompanionUtils.isWoodBlock(state)) continue;
+
+                    double d = companion.distanceToSqr(Vec3.atCenterOf(pos));
+                    if (d < best) {
+                        best = d;
+                        nearest = pos;
+                    }
+                }
+            }
+        }
+
+        return nearest;
     }
 
     private BlockPos findConnectedLog(BlockPos origin) {
@@ -204,7 +266,7 @@ public class CompanionAI {
         Set<BlockPos> visited = new HashSet<>();
         queue.add(origin);
 
-        while (!queue.isEmpty() && visited.size() < 256) {
+        while (!queue.isEmpty() && visited.size() < 512) {
             BlockPos pos = queue.removeFirst();
             if (!visited.add(pos)) continue;
 
@@ -213,14 +275,12 @@ public class CompanionAI {
                 if (visited.contains(next)) continue;
 
                 BlockState state = companion.getLevel().getBlockState(next);
+
                 if (CompanionUtils.isWoodBlock(state)) {
                     return next;
                 }
 
-                // Leaves are allowed as a bridge, but we limit the search to a small tree area.
-                if (state.is(Blocks.OAK_LEAVES) || state.is(Blocks.SPRUCE_LEAVES)
-                        || state.is(Blocks.BIRCH_LEAVES) || state.is(Blocks.JUNGLE_LEAVES)
-                        || state.is(Blocks.ACACIA_LEAVES) || state.is(Blocks.DARK_OAK_LEAVES)) {
+                if (state.is(BlockTags.LEAVES)) {
                     queue.addLast(next);
                 }
             }
@@ -232,29 +292,22 @@ public class CompanionAI {
     private boolean mineBlockWithTool(BlockPos pos, int toolSlot, boolean woodOnly) {
         BlockState state = companion.getLevel().getBlockState(pos);
 
-        if (state.isAir()) {
-            if (pos.equals(targetBlock)) targetBlock = null;
-            return false;
-        }
+        if (state.isAir()) return false;
 
         if (woodOnly) {
-            if (!CompanionUtils.isWoodBlock(state)) {
-                lastTreeLog = null;
-                return false;
-            }
+            if (!CompanionUtils.isWoodBlock(state)) return false;
         } else if (!CompanionUtils.isMineableBlock(state)) {
-            if (pos.equals(targetBlock)) targetBlock = null;
             return false;
         }
 
         double distance = companion.distanceToSqr(Vec3.atCenterOf(pos));
-
-        // A worker can reach above itself without jumping into the block.
-        if (distance > 16.0D) {
+        if (distance > 20.0D) {
             companion.getNavigation().moveTo(
                     pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 1.0D);
             return true;
         }
+
+        if (workCooldown > 0) return true;
 
         ItemStack tool = companion.getInventory().getItem(toolSlot);
         if (tool.isEmpty()) return false;
@@ -262,16 +315,11 @@ public class CompanionAI {
         if (woodOnly && !(tool.getItem() instanceof AxeItem)) return false;
         if (!woodOnly && !(tool.getItem() instanceof PickaxeItem)) return false;
 
-        if (workCooldown > 0) return true;
-
         if (!(companion.getLevel() instanceof ServerLevel serverLevel)) return false;
-
-        float hardness = state.getDestroySpeed(serverLevel, pos);
-        if (hardness < 0.0F) return false;
 
         BlockEntity blockEntity = serverLevel.getBlockEntity(pos);
 
-        // Drop the real block loot into the companion inventory.
+        // Real block drops go to the companion inventory.
         for (ItemStack drop : Block.getDrops(
                 state, serverLevel, pos, blockEntity, companion, tool.copy())) {
             addDropToInventory(drop);
@@ -280,12 +328,12 @@ public class CompanionAI {
         serverLevel.levelEvent(2001, pos, Block.getId(state));
         serverLevel.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
 
-        // Real tool durability + break, instead of creative-style infinite tools.
-        tool.hurtAndBreak(1, companion, entity -> { });
+        // Real durability consumption.
+        tool.hurtAndBreak(1, companion, ignored -> {});
         companion.getInventory().setItem(toolSlot, tool);
 
-        // Harder blocks take longer. This makes the worker feel like a real miner/woodcutter.
-        workCooldown = Math.max(4, Math.min(18, (int) (hardness * 4.0F)));
+        float hardness = state.getDestroySpeed(serverLevel, pos);
+        workCooldown = Math.max(3, Math.min(14, (int) (hardness * 3.0F)));
 
         return true;
     }
@@ -392,9 +440,7 @@ public class CompanionAI {
 
     private void handleAutoDeposit() {
         BlockPos chestPos = CompanionUtils.findNearestBlock(
-                companion.getLevel(),
-                companion.blockPosition(),
-                CompanionUtils.CHEST_RANGE,
+                companion.getLevel(), companion.blockPosition(), CompanionUtils.CHEST_RANGE,
                 state -> state.getBlock() == Blocks.CHEST
         );
 
