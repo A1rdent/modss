@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -33,7 +34,6 @@ public class CompanionAI {
     private boolean returningFromMine;
     private BlockPos breakingBlock;
     private float breakProgress;
-    private BlockPos stairTarget;
 
     public CompanionAI(CompanionEntity companion) {
         this.companion = companion;
@@ -85,6 +85,49 @@ public class CompanionAI {
         stairTarget = null;
         lastTreeLog = null;
         mineDirection = null;
+        minePath.clear();
+        returningFromMine = false;
+        breakingBlock = null;
+        breakProgress = 0.0F;
+        stairTarget = null;
+    }
+
+    public boolean beginReturnToOwner() {
+        if (companion.getOwner() == null || minePath.isEmpty()) return false;
+
+        returningFromMine = true;
+        companion.setMining(false);
+        companion.setGathering(false);
+        companion.setDepositing(false);
+        companion.setWoodcutting(false);
+        companion.setFollowing(false);
+        companion.getNavigation().stop();
+        breakingBlock = null;
+        breakProgress = 0.0F;
+        stairTarget = null;
+        return true;
+    }
+
+    private void tickReturnToOwner() {
+        if (minePath.isEmpty()) {
+            returningFromMine = false;
+            companion.setFollowing(true);
+            return;
+        }
+
+        BlockPos target = minePath.peekLast();
+        Vec3 destination = Vec3.atCenterOf(target);
+        Vec3 delta = destination.subtract(companion.position());
+        double distance = delta.length();
+
+        if (distance <= 0.12D) {
+            companion.setPos(destination.x, destination.y, destination.z);
+            companion.setDeltaMovement(Vec3.ZERO);
+            minePath.removeLast();
+            return;
+        }
+
+        customWalkTo(destination, 0.10D);
     }
 
     private void handleMining() {
@@ -97,7 +140,7 @@ public class CompanionAI {
         }
 
         if (companion.getInventory().isFull()) {
-            companion.returnToOwner();
+            if (!beginReturnToOwner()) companion.returnToOwner();
             return;
         }
 
@@ -350,12 +393,9 @@ public class CompanionAI {
 
         double distance = companion.distanceToSqr(Vec3.atCenterOf(pos));
         if (distance > 20.0D) {
-            companion.getNavigation().moveTo(
-                    pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 1.0D);
+            customWalkTo(Vec3.atCenterOf(pos), 0.10D);
             return true;
         }
-
-        if (workCooldown > 0) return true;
 
         ItemStack tool = companion.getInventory().getItem(toolSlot);
         if (tool.isEmpty()) return false;
@@ -365,9 +405,30 @@ public class CompanionAI {
 
         if (!(companion.getLevel() instanceof ServerLevel serverLevel)) return false;
 
+        // Survival-like breaking: progress accumulates every tick instead of
+        // deleting the block instantly.
+        if (!pos.equals(breakingBlock)) {
+            breakingBlock = pos.immutable();
+            breakProgress = 0.0F;
+        }
+
+        float hardness = state.getDestroySpeed(serverLevel, pos);
+        if (hardness < 0.0F) return false;
+
+        float speed = tool.getDestroySpeed(state);
+        if (speed <= 0.0F) speed = 1.0F;
+
+        boolean effectiveTool = tool.isCorrectToolForDrops(state);
+        float divisor = effectiveTool ? 30.0F : 100.0F;
+        breakProgress += speed / Math.max(0.1F, hardness) / divisor;
+
+        companion.getLookControl().setLookAt(
+                pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
+
+        if (breakProgress < 1.0F) return true;
+
         BlockEntity blockEntity = serverLevel.getBlockEntity(pos);
 
-        // Real block drops go to the companion inventory.
         for (ItemStack drop : Block.getDrops(
                 state, serverLevel, pos, blockEntity, companion, tool.copy())) {
             addDropToInventory(drop);
@@ -376,13 +437,12 @@ public class CompanionAI {
         serverLevel.levelEvent(2001, pos, Block.getId(state));
         serverLevel.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
 
-        // Real durability consumption.
         tool.hurtAndBreak(1, companion, ignored -> {});
         companion.getInventory().setItem(toolSlot, tool);
 
-        float hardness = state.getDestroySpeed(serverLevel, pos);
-        workCooldown = Math.max(3, Math.min(14, (int) (hardness * 3.0F)));
-
+        breakingBlock = null;
+        breakProgress = 0.0F;
+        workCooldown = 2;
         return true;
     }
 
