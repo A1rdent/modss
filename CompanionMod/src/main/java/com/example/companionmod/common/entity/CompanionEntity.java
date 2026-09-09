@@ -33,6 +33,7 @@ public class CompanionEntity extends PathfinderMob {
     private boolean isMining;
     private boolean isGathering;
     private boolean isDepositing;
+    private boolean isWoodcutting;
     private boolean isFollowing = true;
 
     public CompanionEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
@@ -99,6 +100,7 @@ public class CompanionEntity extends PathfinderMob {
         tag.putBoolean("IsMining", isMining);
         tag.putBoolean("IsGathering", isGathering);
         tag.putBoolean("IsDepositing", isDepositing);
+        tag.putBoolean("IsWoodcutting", isWoodcutting);
         tag.putBoolean("IsFollowing", isFollowing);
     }
 
@@ -112,6 +114,7 @@ public class CompanionEntity extends PathfinderMob {
         isMining = tag.getBoolean("IsMining");
         isGathering = tag.getBoolean("IsGathering");
         isDepositing = tag.getBoolean("IsDepositing");
+        isWoodcutting = tag.getBoolean("IsWoodcutting");
         isFollowing = tag.getBoolean("IsFollowing");
     }
 
@@ -150,6 +153,9 @@ public class CompanionEntity extends PathfinderMob {
     public boolean isDepositing() { return isDepositing; }
     public void setDepositing(boolean value) { isDepositing = value; }
 
+    public boolean isWoodcutting() { return isWoodcutting; }
+    public void setWoodcutting(boolean value) { isWoodcutting = value; }
+
     public boolean isFollowing() { return isFollowing; }
     public void setFollowing(boolean value) { isFollowing = value; }
 
@@ -157,6 +163,7 @@ public class CompanionEntity extends PathfinderMob {
         if (isMining) return "mining";
         if (isGathering) return "gathering";
         if (isDepositing) return "depositing";
+        if (isWoodcutting) return "woodcutting";
         if (isFollowing) return "following";
         return "idle";
     }
@@ -169,6 +176,7 @@ public class CompanionEntity extends PathfinderMob {
         isMining = false;
         isGathering = false;
         isDepositing = false;
+        isWoodcutting = false;
         isFollowing = false;
         getNavigation().stop();
     }
