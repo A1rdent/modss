@@ -16,6 +16,7 @@ public final class CompanionCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("companion")
+                        .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("summon").executes(CompanionCommand::summon))
                         .then(Commands.literal("stop").executes(CompanionCommand::stop))
         );
