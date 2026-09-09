@@ -187,6 +187,10 @@ public class CompanionEntity extends PathfinderMob {
             return false;
         }
 
+        if (isMining() && companionAI.beginReturnToOwner()) {
+            return true;
+        }
+
         stopAll();
         isFollowing = true;
         teleportTo(owner.getX() + 1.0D, owner.getY(), owner.getZ() + 1.0D);
