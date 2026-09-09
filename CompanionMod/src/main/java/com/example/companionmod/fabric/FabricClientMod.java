@@ -10,12 +10,15 @@ import net.fabricmc.fabric.api.client.screenhandler.v1.ScreenRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-@SuppressWarnings({"rawtypes","unchecked"})
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class FabricClientMod implements ClientModInitializer {
-    private static final Logger LOGGER=LogManager.getLogger();
-    @Override public void onInitializeClient(){
+    private static final Logger LOGGER = LogManager.getLogger();
+
+    @Override
+    public void onInitializeClient() {
         LOGGER.info("CompanionMod client initializing");
-        ScreenRegistry.register(ScreenHandlerRegistry.COMPANION, (handler, inventory, title) -> new CompanionScreen(handler, inventory, title));
+        ScreenRegistry.register((net.minecraft.world.inventory.MenuType) ScreenHandlerRegistry.COMPANION,
+                (ScreenRegistry.Factory) CompanionScreen::new);
         EntityRendererRegistry.register(EntityTypeRegistry.COMPANION, CompanionEntityRenderer::new);
     }
 }
