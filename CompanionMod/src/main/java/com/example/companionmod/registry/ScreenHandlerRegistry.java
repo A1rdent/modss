@@ -1,19 +1,20 @@
 package com.example.companionmod.registry;
 
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceLocation;
 import com.example.companionmod.client.gui.CompanionScreenHandler;
 import com.example.companionmod.fabric.FabricCompanionMod;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.MenuType;
 
-public class ScreenHandlerRegistry {
-    public static final MenuType<CompanionScreenHandler> COMPANION = register("companion", new MenuType<>(CompanionScreenHandler::new));
+public final class ScreenHandlerRegistry {
+    private ScreenHandlerRegistry() {}
 
-    private static <T extends net.minecraft.world.inventory.AbstractContainerMenu> MenuType<T> register(String id, MenuType<T> type) {
-        return Registry.register(Registry.MENU, new ResourceLocation(FabricCompanionMod.MOD_ID, id), type);
-    }
+    public static final ExtendedScreenHandlerType<CompanionScreenHandler> COMPANION = Registry.register(
+            Registry.MENU,
+            new ResourceLocation(FabricCompanionMod.MOD_ID, "companion"),
+            new ExtendedScreenHandlerType<>(CompanionScreenHandler::new)
+    );
 
-    public static void init() {
-        // ensure static init
-    }
+    public static void init() {}
 }
