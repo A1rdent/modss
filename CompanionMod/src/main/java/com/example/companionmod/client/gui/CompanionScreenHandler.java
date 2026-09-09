@@ -44,19 +44,19 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(companionInventory, row * 9 + col,
-                        13 + col * 18, 27 + row * 18));
+                        13 + col * 18, 28 + row * 18));
             }
         }
 
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(playerInventory, 9 + row * 9 + col,
-                        13 + col * 18, 103 + row * 18));
+                        13 + col * 18, 104 + row * 18));
             }
         }
 
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInventory, col, 13 + col * 18, 163));
+            addSlot(new Slot(playerInventory, col, 13 + col * 18, 164));
         }
     }
 
@@ -75,6 +75,7 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
             case 3 -> setMode(Mode.DEPOSIT);
             case 4 -> companion.stopAll();
             case 5 -> companion.returnToOwner();
+            case 6 -> setMode(Mode.WOODCUTTING);
             default -> { return false; }
         }
         return true;
@@ -88,10 +89,11 @@ public class CompanionScreenHandler extends AbstractContainerMenu {
             case FOLLOW -> companion.setFollowing(true);
             case GATHER -> companion.setGathering(true);
             case DEPOSIT -> companion.setDepositing(true);
+            case WOODCUTTING -> companion.setWoodcutting(true);
         }
     }
 
-    private enum Mode { MINE, FOLLOW, GATHER, DEPOSIT }
+    private enum Mode { MINE, FOLLOW, GATHER, DEPOSIT, WOODCUTTING }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
