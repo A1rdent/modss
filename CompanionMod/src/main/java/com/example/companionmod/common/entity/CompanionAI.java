@@ -29,6 +29,11 @@ public class CompanionAI {
     private BlockPos lastTreeLog;
     private BlockPos stairTarget;
     private Direction mineDirection;
+    private final Deque<BlockPos> minePath = new ArrayDeque<>();
+    private boolean returningFromMine;
+    private BlockPos breakingBlock;
+    private float breakProgress;
+    private BlockPos stairTarget;
 
     public CompanionAI(CompanionEntity companion) {
         this.companion = companion;
@@ -40,6 +45,11 @@ public class CompanionAI {
 
         tickCounter++;
         if (workCooldown > 0) workCooldown--;
+
+        if (returningFromMine) {
+            tickReturnToOwner();
+            return;
+        }
 
         if (companion.isMining()) {
             if (tickCounter % 2 == 0) handleMining();
