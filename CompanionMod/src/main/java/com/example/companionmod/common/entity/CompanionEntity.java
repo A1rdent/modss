@@ -179,6 +179,7 @@ public class CompanionEntity extends PathfinderMob {
         isWoodcutting = false;
         isFollowing = false;
         getNavigation().stop();
+        companionAI.reset();
     }
 
     public boolean returnToOwner() {
