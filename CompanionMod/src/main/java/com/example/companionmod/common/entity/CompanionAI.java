@@ -64,6 +64,30 @@ public class CompanionAI {
         }
     }
 
+    private void customWalkTo(Vec3 destination, double speed) {
+        Vec3 current = companion.position();
+        Vec3 delta = destination.subtract(current);
+        double distance = delta.length();
+
+        if (distance <= 0.08D) {
+            companion.setPos(destination.x, destination.y, destination.z);
+            companion.setDeltaMovement(Vec3.ZERO);
+            return;
+        }
+
+        Vec3 step = delta.scale(Math.min(speed / distance, 1.0D));
+        companion.setPos(
+                current.x + step.x,
+                current.y + step.y,
+                current.z + step.z);
+        companion.setDeltaMovement(Vec3.ZERO);
+        companion.hasImpulse = true;
+        companion.getLookControl().setLookAt(
+                destination.x,
+                destination.y + 0.8D,
+                destination.z);
+    }
+
     private void handleFollowing(Player owner) {
         double distance = companion.distanceToSqr(owner);
 
