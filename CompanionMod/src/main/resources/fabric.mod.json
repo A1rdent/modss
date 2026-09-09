@@ -4,16 +4,22 @@
   "version": "1.0.0",
   "name": "Companion Mod",
   "description": "A companion NPC for Minecraft 1.19.1 with following, mining, gathering and inventory management.",
-  "authors": ["A1rdent"],
+  "authors": [
+    "A1rdent"
+  ],
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.example.companionmod.fabric.FabricCompanionMod"],
-    "client": ["com.example.companionmod.fabric.FabricClientMod"]
+    "main": [
+      "com.example.companionmod.fabric.FabricCompanionMod"
+    ],
+    "client": [
+      "com.example.companionmod.fabric.FabricClientMod"
+    ]
   },
   "depends": {
-    "fabricloader": ">=0.14.21",
-    "fabric": "*",
+    "fabricloader": ">=0.17.2",
+    "fabric": ">=0.58.5",
     "minecraft": "1.19.1"
   }
 }
