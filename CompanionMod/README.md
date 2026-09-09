@@ -2,24 +2,84 @@
 
 A Fabric mod for Minecraft 1.19.1 that adds a controllable companion NPC.
 
-## Current implementation
+## Playable now
 
-- Companion entity with 20 HP, armor, movement speed and persistent owner UUID.
+The current build is designed to be immediately testable in Minecraft:
+
+- Companion entity with 20 HP and persistent owner UUID.
 - 36-slot persistent companion inventory.
-- Companion follows its owner and teleports back when more than 50 blocks away.
-- Mining mode searches a 16-block area for whitelisted blocks and breaks them.
-- Gathering mode collects nearby dropped items into the companion inventory.
-- Optional auto-deposit mode moves inventory items into a nearby chest.
-- `/companion summon` and `/companion stop` commands.
+- Follow mode with pathfinding and teleport when more than 50 blocks away.
+- Mining mode searches within 16 blocks, walks to the target and breaks it.
+- Gathering mode searches within 12 blocks, walks to dropped items and collects them.
+- Deposit mode walks to a nearby chest and moves companion inventory items into it.
+- Owner-only commands: your commands affect the nearest companion owned by you.
 - Companion Spawner item.
 - Client-side humanoid renderer and companion texture.
-- Basic inventory/control GUI infrastructure.
 
-## Important limitations
+## Commands
 
-The GUI is not yet connected to a server-side screen-opening/network flow, so its buttons should not be considered authoritative multiplayer controls yet. The next development step should be to open the screen from the companion interaction and send commands through a server-side menu handler.
+Commands work for normal players; operator permission is not required.
 
-Mining currently uses `Level.destroyBlock`, so it is intentionally simpler than a real player mining action and does not model tool durability or mining time.
+```text
+/companion summon
+/companion follow
+/companion mine
+/companion gather
+/companion deposit
+/companion stop
+/companion status
+/companion help
+```
+
+Only the nearest owned companion within 64 blocks is controlled by `follow`, `mine`, `gather`, `deposit` and `status`. `stop` stops all of your companions within 64 blocks.
+
+### Quick test
+
+1. Start Minecraft 1.19.1 with Fabric Loader and this mod.
+2. In a world, run:
+
+```text
+/companion summon
+```
+
+3. Test:
+
+```text
+/companion status
+/companion mine
+```
+
+The companion will search for minable blocks, walk to them and break them. To return to you:
+
+```text
+/companion follow
+```
+
+To collect dropped blocks/items:
+
+```text
+/companion gather
+```
+
+To put its inventory into a nearby chest:
+
+```text
+/companion deposit
+```
+
+To immediately stop it:
+
+```text
+/companion stop
+```
+
+You can also get the spawner with:
+
+```text
+/give @s companionmod:companion_spawner
+```
+
+The spawner is also available in the Miscellaneous creative tab.
 
 ## Build
 
@@ -43,20 +103,16 @@ For development:
 ./gradlew runClient
 ```
 
-## Commands
+## Known limitations
 
-Operator-level command permission is required:
+The inventory/control GUI infrastructure exists but is not yet the authoritative command interface. For this test build, use the server-side `/companion ...` commands above; they work in singleplayer and on a dedicated server.
 
-```text
-/companion summon
-/companion stop
-```
+Mining intentionally uses `Level.destroyBlock`, so it does not simulate player mining time or tool durability yet.
 
-## Planned next steps
+## Next improvements
 
-1. Add right-click interaction with the companion to open its GUI.
-2. Move GUI actions to server-side packets/menu state instead of changing the entity directly on the client.
-3. Add a proper mining state machine with pathfinding, reach checks and configurable mining speed.
-4. Add owner-only interaction protection.
-5. Improve chest handling for double chests and locked/special containers.
-6. Add combat/defense behavior and configurable companion roles.
+1. Open the companion GUI with right-click.
+2. Route GUI buttons through a server-side handler.
+3. Add tool-aware mining and mining speed.
+4. Add combat/defense behavior.
+5. Add configurable roles and priorities.
