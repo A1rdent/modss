@@ -1,260 +1,62 @@
-# Companion Mod for Minecraft 1.20.1
+# Companion Mod
 
-A comprehensive Forge mod that adds a companion NPC entity to Minecraft 1.20.1 with intelligent AI, inventory management, mining, and resource gathering capabilities.
+A Fabric mod for Minecraft 1.19.1 that adds a controllable companion NPC.
 
-## Features
+## Current implementation
 
-### Core Features
-- **Companion NPC Entity** - A humanoid NPC that follows the player and executes commands
-- **Custom Inventory** - 36-slot inventory system with persistence
-- **Interactive GUI** - Control companion behavior through an in-game GUI
-- **Health System** - Full health mechanics with damage and death
-- **Owner System** - Each companion is bound to its owner/summoner
+- Companion entity with 20 HP, armor, movement speed and persistent owner UUID.
+- 36-slot persistent companion inventory.
+- Companion follows its owner and teleports back when more than 50 blocks away.
+- Mining mode searches a 16-block area for whitelisted blocks and breaks them.
+- Gathering mode collects nearby dropped items into the companion inventory.
+- Optional auto-deposit mode moves inventory items into a nearby chest.
+- `/companion summon` and `/companion stop` commands.
+- Companion Spawner item.
+- Client-side humanoid renderer and companion texture.
+- Basic inventory/control GUI infrastructure.
 
-### Companion Abilities
-- **Mining** - Break stone, ore, dirt, gravel, sand and other minable blocks
-- **Resource Gathering** - Collect items from the ground
-- **Auto-Deposit** - Automatically deposit mined materials into nearby chests
-- **Player Following** - Follow the player with smart pathfinding
-- **Teleportation** - Teleport to player if distance exceeds 50 blocks
-- **Smart AI** - Goal-based AI system for autonomous behavior management
+## Important limitations
 
-### Summoning Options
-- **Command Summoning** - Use `/companion summon` to summon a companion
-- **Item Summoning** - Right-click with Companion Spawner item to spawn
-- **Command Stopping** - Use `/companion stop` to stop all companions
+The GUI is not yet connected to a server-side screen-opening/network flow, so its buttons should not be considered authoritative multiplayer controls yet. The next development step should be to open the screen from the companion interaction and send commands through a server-side menu handler.
 
-### Control Commands
-- **Mine** - Start/stop mining mode
-- **Follow** - Enable/disable player following
-- **Gather** - Start/stop gathering mode
-- **Stop** - Stop all current activities
-- **Inventory** - Access companion's inventory
+Mining currently uses `Level.destroyBlock`, so it is intentionally simpler than a real player mining action and does not model tool durability or mining time.
 
-## Project Structure
+## Build
 
-```
-CompanionMod/
-├── src/main/java/com/example/companionmod/
-│   ├── CompanionMod.java                    # Main mod class
-│   ├── client/
-│   │   ├── ClientEvents.java               # Client-side event handlers
-│   │   ├── gui/
-│   │   │   ├── CompanionScreen.java        # GUI screen for companion control
-│   │   │   └── CompanionScreenHandler.java # GUI menu handler
-│   │   └── render/
-│   │       ├── CompanionModel.java         # Entity model definition
-│   │       └── CompanionEntityRenderer.java # Entity renderer
-│   ├── common/
-│   │   ├── CommonEvents.java               # Common-side event handlers
-│   │   ├── command/
-│   │   │   └── CompanionCommand.java       # Command registration
-│   │   ├── entity/
-│   │   │   ├── CompanionEntity.java        # Main entity class
-│   │   │   ├── CompanionAI.java            # AI behavior system
-│   │   │   └── CompanionInventory.java     # Custom inventory system
-│   │   ├── item/
-│   │   │   └── CompanionSpawnerItem.java   # Spawner item implementation
-│   │   └── util/
-│   │       └── CompanionUtils.java         # Utility functions
-│   └── registry/
-│       ├── EntityTypeRegistry.java         # Entity type registration
-│       └── ItemRegistry.java               # Item registration
-└── src/main/resources/
-    ├── META-INF/
-    │   └── mods.toml                       # Mod metadata
-    └── assets/companionmod/
-        ├── lang/
-        │   └── en_us.json                  # Language strings
-        ├── models/item/
-        │   └── companion_spawner.json      # Item model
-        └── textures/
-            ├── entity/companion/           # Entity textures
-            ├── item/                       # Item textures
-            └── gui/                        # GUI textures
-```
+Requirements:
+- Java 17
+- Minecraft 1.19.1
+- Fabric Loader 0.14.21+
+- Fabric API 0.79.6+1.19.1
 
-## Setup Instructions
-
-### Prerequisites
-- Java 17 or higher
-- Gradle 7.0 or higher
-- Minecraft 1.20.1 (Forge 47.3.0 or compatible)
-
-### Building the Mod
-
-1. **Clone/Extract the project:**
-   ```bash
-   cd CompanionMod
-   ```
-
-2. **Setup Gradle workspace:**
-   ```bash
-   ./gradlew genSources
-   ```
-
-3. **Build the mod JAR:**
-   ```bash
-   ./gradlew build
-   ```
-
-4. The compiled JAR will be in `build/libs/CompanionMod-1.0.0.jar`
-
-### Installing the Mod
-
-1. Place the JAR file in your Minecraft mods folder:
-   ```
-   %APPDATA%\.minecraft\mods\
-   ```
-   Or for other systems:
-   - Linux: `~/.minecraft/mods/`
-   - macOS: `~/Library/Application Support/minecraft/mods/`
-
-2. Launch Minecraft with Forge 1.20.1
-
-### Running in Development
-
-Use the Gradle run configurations:
+From the `CompanionMod` directory:
 
 ```bash
-# Run client
+./gradlew build
+```
+
+The resulting JAR is placed in `build/libs/`.
+
+For development:
+
+```bash
 ./gradlew runClient
-
-# Run server
-./gradlew runServer
 ```
 
-## Texture Setup
+## Commands
 
-**Important:** The mod requires textures for proper visual rendering. See [TEXTURES.md](TEXTURES.md) for detailed instructions on creating or adding textures.
+Operator-level command permission is required:
 
-Quick summary of required textures:
-- `assets/companionmod/textures/entity/companion/companion.png` (64x64)
-- `assets/companionmod/textures/item/companion_spawner.png` (16x16)
-- `assets/companionmod/textures/gui/companion_gui.png` (176x222)
-
-## Usage Guide
-
-### Summoning a Companion
-
-**Method 1: Command**
-```
+```text
 /companion summon
-```
-
-**Method 2: Item**
-1. Obtain a Companion Spawner item (Creative mode or via NBT editor)
-2. Right-click in the world
-3. Companion spawns next to you
-
-### Controlling Your Companion
-
-1. **Open GUI:** Open your inventory and click on the companion nearby
-2. **Send Commands:**
-   - **Mine** - Companion breaks nearby minable blocks
-   - **Follow** - Companion follows you (default enabled)
-   - **Gather** - Companion collects items from ground
-   - **Stop** - Stop all companion activities
-
-3. **Manage Inventory:**
-   - Open the companion inventory in the GUI
-   - Drag items to transfer between inventories
-
-### Stopping Companions
-
-Use the command:
-```
 /companion stop
 ```
 
-This stops all your companions' activities.
+## Planned next steps
 
-## Configuration
-
-### Entity Attributes
-- Health: 20 HP (full bar)
-- Movement Speed: 0.3 (follows player speed)
-- Attack Damage: 4
-- Follow Range: 32 blocks
-- Armor: 2
-
-### AI Behavior Ranges
-- Mining search range: 16 blocks
-- Chest detection range: 8 blocks
-- Player follow range: 4 blocks
-- Teleport distance: > 50 blocks
-
-### Minable Blocks
-- Stone variants (stone, deepslate)
-- All ores (copper, iron, coal, lapis, gold, diamond, emerald, redstone)
-- Dirt, gravel, sand, sandstone
-- Block variants (raw copper, raw iron, raw gold blocks)
-
-## Troubleshooting
-
-### Companion doesn't spawn
-- Check that you're not in Creative+ mode (some versions)
-- Ensure you have commands enabled if using `/companion summon`
-- Check server logs for errors
-
-### Companion doesn't mine
-- Ensure companion has line-of-sight to blocks
-- Check that block type is in whitelist (see above)
-- Verify mining goal is enabled
-
-### Companion not following
-- Check that follow mode is enabled
-- Verify companion can pathfind to your location
-- If you're >50 blocks away, companion should teleport
-
-### Items not depositing to chest
-- Ensure chest is within 8 blocks
-- Check that chest has empty slots
-- Try moving closer to the chest
-
-### Textures not loading
-- Verify texture files are in correct location with correct names
-- Ensure textures are in PNG format with transparency
-- Check that file paths match exactly (case-sensitive on Linux/Mac)
-
-## Mod Support
-
-This mod is built using:
-- Forge 1.20.1 (47.3.0+)
-- Minecraft Forge's event-driven architecture
-- NBT serialization for data persistence
-
-## Future Enhancements
-
-Planned features for future versions:
-- Multiple companion types (warrior, mage, healer)
-- Trading system with companions
-- Companion leveling and skill system
-- More advanced AI behaviors
-- Custom model support
-- Configuration file for customization
-- Multiplayer synchronized companions
-- Combat AI for companion assistance
-
-## License
-
-MIT License - See LICENSE file for details
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
-
-## Support
-
-For issues, questions, or suggestions:
-1. Check this README first
-2. Review the troubleshooting section
-3. Check existing issues
-4. Create a new issue with detailed information
-
----
-
-**Mod Version:** 1.0.0  
-**Minecraft Version:** 1.20.1  
-**Forge Version:** 47.3.0+  
-**Java Version:** 17+
+1. Add right-click interaction with the companion to open its GUI.
+2. Move GUI actions to server-side packets/menu state instead of changing the entity directly on the client.
+3. Add a proper mining state machine with pathfinding, reach checks and configurable mining speed.
+4. Add owner-only interaction protection.
+5. Improve chest handling for double chests and locked/special containers.
+6. Add combat/defense behavior and configurable companion roles.
